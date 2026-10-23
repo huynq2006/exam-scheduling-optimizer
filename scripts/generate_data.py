@@ -24,28 +24,28 @@ SOFTWARE_ID = {name: idx + 1 for idx, (name, _) in enumerate(SOFTWARE_CATALOG)}
 
 # mon_thi: (ma_mon, ten_mon, so_tin_chi, thoi_luong_phut, hinh_thuc, required software)
 SUBJECT_CATALOG = [
-    ("INT1306", "Cấu trúc dữ liệu và giải thuật", 3, 90, "Thực hành", ["Visual Studio"]),
-    ("INT1313", "Lập trình Python", 3, 90, "Thực hành", ["Python", "PyCharm"]),
-    ("INT1314", "Lập trình hướng đối tượng", 3, 90, "Thực hành", ["Eclipse"]),
-    ("INT1319", "Cơ sở dữ liệu", 3, 75, "Thực hành", ["MySQL Workbench"]),
-    ("INT1332", "Hệ quản trị cơ sở dữ liệu", 3, 90, "Thực hành", ["MySQL Workbench"]),
-    ("INT1336", "Mạng máy tính", 3, 60, "Trắc nghiệm trên máy", ["Cisco Packet Tracer"]),
-    ("INT1340", "An toàn mạng", 3, 75, "Thực hành", ["Wireshark", "Oracle VirtualBox"]),
-    ("INT1359", "Lập trình Web", 3, 90, "Thực hành", ["Visual Studio"]),
-    ("INT1449", "Lập trình di động", 3, 90, "Thực hành", ["Android Studio"]),
-    ("INT1405", "Hệ điều hành", 3, 60, "Trắc nghiệm trên máy", ["Oracle VirtualBox"]),
-    ("MAT1101", "Giải tích số", 2, 60, "Thực hành", ["MATLAB"]),
-    ("MAT1102", "Xác suất thống kê", 3, 60, "Thực hành", ["MATLAB", "Python"]),
-    ("ENG1201", "Tiếng Anh chuyên ngành", 2, 45, "Trắc nghiệm trên máy", ["Microsoft Office"]),
-    ("INF1101", "Tin học văn phòng", 2, 60, "Thực hành", ["Microsoft Office"]),
-    ("DES1301", "Đồ họa kỹ thuật", 2, 90, "Thực hành", ["AutoCAD"]),
-    ("INT1415", "Kiểm thử phần mềm", 3, 75, "Thực hành", ["Eclipse", "Python"]),
-    ("INT1416", "Phân tích dữ liệu", 3, 90, "Thực hành", ["Python", "Microsoft Office"]),
-    ("INT1417", "Học máy cơ bản", 3, 90, "Thực hành", ["Python", "PyCharm"]),
-    ("INT1418", "Kiến trúc máy tính", 3, 60, "Trắc nghiệm trên máy", ["Oracle VirtualBox"]),
-    ("INT1419", "Phát triển ứng dụng Java", 3, 90, "Thực hành", ["Eclipse"]),
-    ("INT1420", "Điện toán đám mây", 3, 75, "Trắc nghiệm trên máy", ["Oracle VirtualBox", "Wireshark"]),
-    ("INT1421", "Trí tuệ nhân tạo", 3, 90, "Thực hành", ["Python", "PyCharm"]),
+    ("INT1306", "Cấu trúc dữ liệu và giải thuật", 3, 90, "Practical", ["Visual Studio"]),
+    ("INT1313", "Lập trình Python", 3, 90, "Practical", ["Python", "PyCharm"]),
+    ("INT1314", "Lập trình hướng đối tượng", 3, 90, "Practical", ["Eclipse"]),
+    ("INT1319", "Cơ sở dữ liệu", 3, 75, "Practical", ["MySQL Workbench"]),
+    ("INT1332", "Hệ quản trị cơ sở dữ liệu", 3, 90, "Practical", ["MySQL Workbench"]),
+    ("INT1336", "Mạng máy tính", 3, 60, "Computer-based test", ["Cisco Packet Tracer"]),
+    ("INT1340", "An toàn mạng", 3, 75, "Practical", ["Wireshark", "Oracle VirtualBox"]),
+    ("INT1359", "Lập trình Web", 3, 90, "Practical", ["Visual Studio"]),
+    ("INT1449", "Lập trình di động", 3, 90, "Practical", ["Android Studio"]),
+    ("INT1405", "Hệ điều hành", 3, 60, "Computer-based test", ["Oracle VirtualBox"]),
+    ("MAT1101", "Giải tích số", 2, 60, "Practical", ["MATLAB"]),
+    ("MAT1102", "Xác suất thống kê", 3, 60, "Practical", ["MATLAB", "Python"]),
+    ("ENG1201", "Tiếng Anh chuyên ngành", 2, 45, "Computer-based test", ["Microsoft Office"]),
+    ("INF1101", "Tin học văn phòng", 2, 60, "Practical", ["Microsoft Office"]),
+    ("DES1301", "Đồ họa kỹ thuật", 2, 90, "Practical", ["AutoCAD"]),
+    ("INT1415", "Kiểm thử phần mềm", 3, 75, "Practical", ["Eclipse", "Python"]),
+    ("INT1416", "Phân tích dữ liệu", 3, 90, "Practical", ["Python", "Microsoft Office"]),
+    ("INT1417", "Học máy cơ bản", 3, 90, "Practical", ["Python", "PyCharm"]),
+    ("INT1418", "Kiến trúc máy tính", 3, 60, "Computer-based test", ["Oracle VirtualBox"]),
+    ("INT1419", "Phát triển ứng dụng Java", 3, 90, "Practical", ["Eclipse"]),
+    ("INT1420", "Điện toán đám mây", 3, 75, "Computer-based test", ["Oracle VirtualBox", "Wireshark"]),
+    ("INT1421", "Trí tuệ nhân tạo", 3, 90, "Practical", ["Python", "PyCharm"]),
 ]
 
 # phong_may hardware profile 
@@ -109,6 +109,17 @@ cursor.execute("SELECT @@port AS port, DATABASE() AS db, CURRENT_USER() AS u")
 print(cursor.fetchone())
 cursor.execute("SHOW CREATE TABLE sinh_vien")
 print(cursor.fetchone()['Create Table'])
+print()
+print(cursor.fetchone())
+cursor.execute("SHOW CREATE TABLE phong_may")
+print(cursor.fetchone()['Create Table'])
+print()
+print(cursor.fetchone())
+cursor.execute("SHOW CREATE TABLE mon_thi")
+print(cursor.fetchone()['Create Table'])
+cursor.execute("SELECT @@server_id AS sid, @@hostname AS host, COUNT(*) AS n FROM sinh_vien")
+print(cursor.fetchone())
+print("Connected to:", connection.host, connection.port)
 
 
 def normalize_name(name):
@@ -183,14 +194,16 @@ def generated_rooms(n):
         building = "A" if i < (n + 1) // 2 else "B"
         floor = random.randint(2, 5)
         code = f"P{building}{floor}{i + 1:03d}"  # e.g. PA2001 (unique through i + 1)
-
+        operating_sys = "Window 11"
+        
         data = {
             "ma_phong": code,
             "ten_phong": f"Phòng máy {code}",
             "toa_nha": building,
             "tang": floor,
             "suc_chua": random.choice(ROOM_CAPACITIES),
-            "tinh_trang": "Bảo trì" if random.random() < 0.05 else "Hoạt động"
+            "he_dieu_hanh": operating_sys,
+            "tinh_trang": "Maintainence" if random.random() < 0.05 else "Working"
         }
         rooms.append(data)
 
@@ -211,7 +224,7 @@ def generated_room_software(rooms):
         extra = set(random.sample(all_names, random.randint(4, 8)))
         installed[r["ma_phong"]] = base | extra
 
-    active_codes = [r["ma_phong"] for r in rooms if r["tinh_trang"] == "Hoạt động"]
+    active_codes = [r["ma_phong"] for r in rooms if r["tinh_trang"] == "Working"]
     for name in all_names:
         holders = [c for c in active_codes if name in installed[c]]
         missing = [c for c in active_codes if name not in installed[c]]
@@ -284,7 +297,7 @@ def generated_exam_schedule(students, subjects, rooms, room_software, subject_so
     req_by_subject = {}
     for link in subject_software:
         req_by_subject.setdefault(link["ma_mon"], set()).add(link["ma_pm"])
-    active_rooms = [r for r in rooms if r["tinh_trang"] == "Hoạt động"]
+    active_rooms = [r for r in rooms if r["tinh_trang"] == "Working"]
     subject_codes = [s["ma_mon"] for s in subjects]
 
     # Each student picks 3-5 subjects
@@ -364,9 +377,9 @@ def insert_students(connection, data_list):
 
 def insert_rooms(connection, data_list):
     cursor = connection.cursor()
-    sql = """INSERT INTO phong_may (ma_phong, ten_phong, toa_nha, tang, suc_chua, tinh_trang)
-             VALUES (%s, %s, %s, %s, %s, %s)"""
-    values = [(d['ma_phong'], d['ten_phong'], d['toa_nha'], d['tang'], d['suc_chua'], d['tinh_trang']) for d in data_list]
+    sql = """INSERT INTO phong_may (ma_phong, ten_phong, toa_nha, tang, suc_chua, he_dieu_hanh, tinh_trang)
+             VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+    values = [(d['ma_phong'], d['ten_phong'], d['toa_nha'], d['tang'], d['suc_chua'], d['he_dieu_hanh'], d['tinh_trang']) for d in data_list]
     cursor.executemany(sql, values)
     connection.commit()
 

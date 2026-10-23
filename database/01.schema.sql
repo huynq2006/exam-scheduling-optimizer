@@ -41,7 +41,7 @@ CREATE TABLE phong_may (
     tang        TINYINT     NOT NULL,
     suc_chua    SMALLINT    NOT NULL,               -- number of machines
     he_dieu_hanh VARCHAR(40) NOT NULL,
-    tinh_trang  ENUM('Hoạt động','Bảo trì') NOT NULL DEFAULT 'Hoạt động',
+    tinh_trang  ENUM('Working','Maintainance') NOT NULL DEFAULT 'Working',
     PRIMARY KEY (ma_phong),
     CONSTRAINT chk_pm_suc_chua CHECK (suc_chua > 0)
 ) ENGINE=InnoDB;
@@ -61,7 +61,7 @@ CREATE TABLE mon_thi (
     ten_mon     VARCHAR(120) NOT NULL,
     so_tin_chi  TINYINT     NOT NULL,
     thoi_luong_phut SMALLINT NOT NULL,
-    hinh_thuc   ENUM('Trên máy','Trắc nghiệm trên máy','Thực hành') NOT NULL DEFAULT 'Trên máy',
+    hinh_thuc   ENUM('On-screen','Computer-based test','Practical') NOT NULL DEFAULT 'On-screen', -- thi trên máy, trắc nghiệm trên máy, thực hành
     PRIMARY KEY (ma_mon),
     CONSTRAINT chk_mt_tc CHECK (so_tin_chi BETWEEN 1 AND 6),
     CONSTRAINT chk_mt_tl CHECK (thoi_luong_phut BETWEEN 15 AND 240)
@@ -112,4 +112,3 @@ CREATE TABLE dang_ky_thi (
     CONSTRAINT fk_dk_lich FOREIGN KEY (ma_lich) REFERENCES lich_thi(ma_lich) ON DELETE CASCADE,
     CONSTRAINT chk_dk_diem CHECK (diem IS NULL OR diem BETWEEN 0 AND 10)
 ) ENGINE=InnoDB;
-
