@@ -12,7 +12,7 @@ CREATE TABLE sinh_vien (
     ma_sv       VARCHAR(12)  NOT NULL,
     ho_ten      VARCHAR(100) NOT NULL,
     ngay_sinh   DATE         NOT NULL,
-    gioi_tinh   ENUM('Nam','Nữ') NOT NULL,
+    gioi_tinh   ENUM('Nam','Nu') NOT NULL,
     email       VARCHAR(120) NOT NULL,
     so_dien_thoai VARCHAR(15),
     lop         VARCHAR(20)  NOT NULL,
@@ -23,7 +23,8 @@ CREATE TABLE sinh_vien (
     KEY idx_sv_lop (lop),
     CONSTRAINT chk_sv_khoa_hoc CHECK (khoa_hoc BETWEEN 2000 AND 2100)
 ) ENGINE=InnoDB;
- 
+
+ALTER TABLE quan_ly_thi.sinh_vien MODIFY COLUMN gioi_tinh ENUM('Nam','Nu') NOT NULL;
 -- 2. PhanMem (software catalogue) --
 CREATE TABLE phan_mem (
     ma_pm       INT AUTO_INCREMENT PRIMARY KEY,
@@ -39,14 +40,10 @@ CREATE TABLE phong_may (
     toa_nha     VARCHAR(10) NOT NULL,
     tang        TINYINT     NOT NULL,
     suc_chua    SMALLINT    NOT NULL,               -- number of machines
-    so_cpu         VARCHAR(60) NOT NULL,
-    ram_gb      SMALLINT    NOT NULL,
-    o_cung      VARCHAR(40) NOT NULL,
     he_dieu_hanh VARCHAR(40) NOT NULL,
     tinh_trang  ENUM('Hoạt động','Bảo trì') NOT NULL DEFAULT 'Hoạt động',
     PRIMARY KEY (ma_phong),
-    CONSTRAINT chk_pm_suc_chua CHECK (suc_chua > 0),
-    CONSTRAINT chk_pm_ram CHECK (ram_gb > 0)
+    CONSTRAINT chk_pm_suc_chua CHECK (suc_chua > 0)
 ) ENGINE=InnoDB;
  
 -- M:N room <-> software

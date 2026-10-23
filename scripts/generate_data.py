@@ -4,10 +4,11 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from faker import Faker
 from faker.providers import BaseProvider
-from backend.db_helper import get_master_connection
+from src.backend.db_helper import get_master_connection
 import random
 from datetime import date, time, timedelta
 from unidecode import unidecode
+import unicodedata 
 
 # ======================================================================
 # Reference data (maps 1-to-1 with the tables in schema.sql)
@@ -47,14 +48,7 @@ SUBJECT_CATALOG = [
     ("INT1421", "Trí tuệ nhân tạo", 3, 90, "Thực hành", ["Python", "PyCharm"]),
 ]
 
-# phong_may hardware profiles: (cpu, ram_gb, o_cung, gpu, he_dieu_hanh)
-ROOM_PROFILES = [
-    ("Intel Core i5-12400", 16, "SSD 512GB", None, "Windows 11 Pro"),
-    ("Intel Core i7-12700", 32, "SSD 1TB", "NVIDIA RTX 3060", "Windows 11 Pro"),
-    ("Intel Core i3-10100", 8, "SSD 256GB", None, "Windows 10 Pro"),
-    ("AMD Ryzen 5 5600G", 16, "SSD 512GB", None, "Windows 11 Pro"),
-    ("Intel Core i7-13700", 32, "SSD 1TB", "NVIDIA RTX 4060", "Ubuntu 22.04 / Win 11"),
-]
+# phong_may hardware profile 
 ROOM_CAPACITIES = [30, 36, 40, 45, 50, 60]
 
 # sinh_vien.khoa -> class prefix
@@ -111,6 +105,10 @@ fake = Faker('vi_VN')
 fake.add_provider(VietnameseNameProvider)
 connection = get_master_connection()
 cursor = connection.cursor()
+cursor.execute("SELECT @@port AS port, DATABASE() AS db, CURRENT_USER() AS u")
+print(cursor.fetchone())
+cursor.execute("SHOW CREATE TABLE sinh_vien")
+print(cursor.fetchone()['Create Table'])
 
 
 def normalize_name(name):
@@ -140,7 +138,7 @@ def generated_students(n):
     students = []
 
     for i in range(n):
-        gender = fake.random_element(elements=('Nam', 'Nữ'))
+        gender = fake.random_element(elements=('Nam', 'Nu'))
         last_name = fake.vn_last_name()
         middle_name = fake.vn_middle_name(gender)
         first_name = fake.vn_first_name(gender)
@@ -185,7 +183,6 @@ def generated_rooms(n):
         building = "A" if i < (n + 1) // 2 else "B"
         floor = random.randint(2, 5)
         code = f"P{building}{floor}{i + 1:03d}"  # e.g. PA2001 (unique through i + 1)
-        cpu, ram, disk, gpu, os_name = random.choice(ROOM_PROFILES)
 
         data = {
             "ma_phong": code,
@@ -193,11 +190,6 @@ def generated_rooms(n):
             "toa_nha": building,
             "tang": floor,
             "suc_chua": random.choice(ROOM_CAPACITIES),
-            "cpu": cpu,
-            "ram_gb": ram,
-            "o_cung": disk,
-            "gpu": gpu,
-            "he_dieu_hanh": os_name,
             "tinh_trang": "Bảo trì" if random.random() < 0.05 else "Hoạt động"
         }
         rooms.append(data)
@@ -364,7 +356,7 @@ def insert_students(connection, data_list):
     cursor = connection.cursor()
     sql = """INSERT INTO sinh_vien (ma_sv, ho_ten, ngay_sinh, gioi_tinh, email, so_dien_thoai, lop, khoa, khoa_hoc)
              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-    values = [(d['ma_sv'], d['ho_ten'], d['ngay_sinh'], d['gioi_tinh'], d['email'],
+    values = [(d['ma_sv'], d['ho_ten'], d['ngay_sinh'], unicodedata.normalize('NFC', d['gioi_tinh']), d['email'],
                d['so_dien_thoai'], d['lop'], d['khoa'], d['khoa_hoc']) for d in data_list]
     cursor.executemany(sql, values)
     connection.commit()
@@ -372,10 +364,9 @@ def insert_students(connection, data_list):
 
 def insert_rooms(connection, data_list):
     cursor = connection.cursor()
-    sql = """INSERT INTO phong_may (ma_phong, ten_phong, toa_nha, tang, suc_chua, cpu, ram_gb, o_cung, gpu, he_dieu_hanh, tinh_trang)
-             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-    values = [(d['ma_phong'], d['ten_phong'], d['toa_nha'], d['tang'], d['suc_chua'], d['cpu'],
-               d['ram_gb'], d['o_cung'], d['gpu'], d['he_dieu_hanh'], d['tinh_trang']) for d in data_list]
+    sql = """INSERT INTO phong_may (ma_phong, ten_phong, toa_nha, tang, suc_chua, tinh_trang)
+             VALUES (%s, %s, %s, %s, %s, %s)"""
+    values = [(d['ma_phong'], d['ten_phong'], d['toa_nha'], d['tang'], d['suc_chua'], d['tinh_trang']) for d in data_list]
     cursor.executemany(sql, values)
     connection.commit()
 
