@@ -1,0 +1,202 @@
+@startuml
+title CLASS DIAGRAM\nHỆ THỐNG XẾP LỊCH PHÒNG THI VÀ PHÒNG MÁY
+
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 45
+skinparam ranksep 60
+hide empty members
+
+skinparam class {
+  BorderColor #94A3B8
+  FontColor #243447
+  BackgroundColor #FFFFFF
+  ArrowColor #64748B
+}
+skinparam package {
+  BorderColor #CBD5E1
+  FontColor #334155
+  BackgroundColor #F8FAFC
+}
+skinparam ArrowColor #64748B
+
+package "NGƯỜI DÙNG" #EEF5FF {
+  abstract class NguoiDung {
+    - maND: String
+    - hoTen: String
+    - tenDangNhap: String
+    - matKhau: String
+    + dangNhap(): boolean
+  }
+  class QuanTriVien {
+    + quanLyTaiKhoan()
+    + capNhatThamSoBoGiai()
+  }
+  class GiaoVu {
+    + nhapDuLieu(file: File)
+    + taoYeuCau(): YeuCauXepLich
+    + duyetPhuongAn(pa: PhuongAn)
+    + congBo(pa: PhuongAn)
+  }
+  class SinhVien {
+    - maSV: String
+    + traCuuLich(): List<LichXep>
+  }
+}
+
+package "THIẾT LẬP VÀ TỐI ƯU" #FFF7E6 {
+  class BoGiai {
+    - tenSolver: String
+    - thoiGianChayToiDa: int
+    - mipGap: double
+    + giai(yc: YeuCauXepLich): PhuongAn
+  }
+  class YeuCauXepLich {
+    - maYC: String
+    - hocKy: String
+    - loaiLich: LoaiLich
+    - ngayTao: Date
+    - ketQuaGiai: KetQuaGiai
+  }
+  class RangBuoc {
+    - maRB: String
+    - tenRB: String
+    - loai: LoaiRangBuoc
+    - trongSo: double
+    - thamSo: double
+  }
+  enum LoaiLich #FFFDF5 {
+    THI
+    THUC_HANH
+  }
+  enum KetQuaGiai #FFFDF5 {
+    TOI_UU
+    KHA_THI
+    VO_NGHIEM
+  }
+  enum LoaiRangBuoc #FFFDF5 {
+    CUNG
+    MEM
+  }
+}
+
+package "PHƯƠNG ÁN VÀ LỊCH XẾP" #FFF0E7 {
+  class PhuongAn {
+    - maPA: String
+    - phienBan: int
+    - giaTriMucTieu: double
+    - soPhongMo: int
+    - trangThai: TrangThaiPhuongAn
+    + kiemTraHopLe(): List<XungDot>
+    + dieuChinh(l: LichXep, kg: KhungGio, p: Phong)
+    + xuatBaoCao(dinhDang: String)
+  }
+  class XungDot {
+    - maXD: String
+    - loai: LoaiXungDot
+    - moTa: String
+  }
+  class LichXep {
+    - maLich: String
+    - soSVTrongPhong: int
+  }
+  enum TrangThaiPhuongAn #FFFAF6 {
+    NHAP
+    DA_DUYET
+    DA_CONG_BO
+    LUU_TRU
+  }
+  enum LoaiXungDot #FFFAF6 {
+    QUA_SUC_CHUA
+    TRUNG_SV
+    TRUNG_GIAM_THI
+    THIEU_PHAN_MEM
+  }
+}
+
+package "DỮ LIỆU VÀ TÀI NGUYÊN" #EAF7EE {
+  class NhomSinhVien {
+    - maNhom: String
+    - soSV: int
+  }
+  class HocPhan {
+    - maHP: String
+    - tenHP: String
+    - hocKy: String
+    - thoiLuongThi: int
+    - canPhongMay: boolean
+  }
+  class GiamThi {
+    - maGT: String
+    - hoTen: String
+    + kiemTraRanh(kg: KhungGio): boolean
+  }
+  class KhungGio {
+    - maCa: String
+    - hocKy: String
+    - ngay: Date
+    - gioBatDau: Time
+    - gioKetThuc: Time
+  }
+  class Phong {
+    - maPhong: String
+    - loaiPhong: LoaiPhong
+    - sucChua: int
+    - soMay: int
+    - chiPhiMo: double
+  }
+  class PhanMem {
+    - maPM: String
+    - tenPM: String
+    - phienBan: String
+  }
+  enum LoaiPhong #F5FBF6 {
+    LY_THUYET
+    PHONG_MAY
+  }
+}
+
+' ===== Kế thừa =====
+NguoiDung <|-- QuanTriVien
+NguoiDung <|-- GiaoVu
+NguoiDung <|-- SinhVien
+
+' ===== Người dùng với nghiệp vụ =====
+QuanTriVien ..> BoGiai : cấu hình
+GiaoVu "1" -- "0..*" YeuCauXepLich : tạo >
+GiaoVu "0..1" -- "0..*" PhuongAn : duyệt >
+SinhVien "0..*" -- "0..*" NhomSinhVien : thuộc >
+
+' ===== Thiết lập và giải =====
+BoGiai ..> YeuCauXepLich : giải >
+YeuCauXepLich "1" -- "0..*" PhuongAn : sinh ra >
+YeuCauXepLich "1" -- "0..*" RangBuoc : áp dụng >
+
+' ===== Phương án =====
+PhuongAn "1" *-- "0..*" LichXep : gồm >
+PhuongAn "1" *-- "0..*" XungDot : ghi nhận >
+XungDot "0..*" -- "0..*" LichXep : liên quan >
+
+' ===== Lịch xếp và tài nguyên =====
+HocPhan "1" -- "1..*" NhomSinhVien : gồm >
+LichXep "0..*" -- "1" NhomSinhVien : được xếp >
+LichXep "0..*" -- "1" Phong : sử dụng >
+LichXep "0..*" -- "1" KhungGio : diễn ra >
+LichXep "0..*" -- "1..*" GiamThi : giám sát >
+GiamThi "0..*" -- "0..*" KhungGio : bận >
+HocPhan "0..*" -- "0..*" PhanMem : yêu cầu >
+Phong "0..*" -- "0..*" PhanMem : cài đặt >
+
+' ===== Nối enum với lớp sử dụng (tránh bị bơ vơ) =====
+YeuCauXepLich ..> LoaiLich
+YeuCauXepLich ..> KetQuaGiai
+RangBuoc ..> LoaiRangBuoc
+PhuongAn ..> TrangThaiPhuongAn
+XungDot ..> LoaiXungDot
+Phong ..> LoaiPhong
+
+@enduml

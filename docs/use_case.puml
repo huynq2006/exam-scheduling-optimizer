@@ -1,0 +1,114 @@
+@startuml
+title USE CASE DIAGRAM - HỆ THỐNG XẾP LỊCH PHÒNG THI VÀ PHÒNG MÁY
+
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Tahoma
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 70
+skinparam linetype polyline
+
+skinparam usecase {
+  BackgroundColor #F4F8FC
+  BorderColor #4472C4
+  FontColor #243447
+}
+skinparam ArrowColor #64748B
+
+actor "Giáo vụ" as GV
+actor "Quản trị viên" as QT
+actor "Sinh viên" as SV
+
+rectangle "HỆ THỐNG XẾP LỊCH PHÒNG THI VÀ PHÒNG MÁY" {
+
+  package "QUẢN LÝ DỮ LIỆU" {
+    usecase "Quản lý học phần,\nnhóm sinh viên,\nyêu cầu phần mềm" as UC1
+    usecase "Quản lý phòng,\ncấu hình máy" as UC2
+    usecase "Quản lý giám thị\nvà khung giờ thi" as UC3
+    usecase "Nhập dữ liệu\nExcel/CSV" as UC4
+  }
+
+  package "XẾP LỊCH TỐI ƯU" {
+    usecase "Cấu hình ràng buộc cứng\nvà mục tiêu mềm" as UC5
+    usecase "Tạo phương án\nxếp lịch (ILP/CSP)" as UC6
+    usecase "Kiểm tra hợp lệ\nvà xung đột" as UC7
+    usecase "Xử lý khi không có\nphương án hợp lệ" as UC8
+    usecase "Xem và điều chỉnh\nphương án" as UC9
+    usecase "Lập lại lịch khi\ncó thay đổi" as UC10
+    usecase "Phê duyệt và\ncông bố lịch" as UC11
+    usecase "Xuất lịch và báo cáo\nsử dụng phòng" as UC12
+  }
+
+  package "TRA CỨU VÀ QUẢN TRỊ" {
+    usecase "Tra cứu lịch thi,\nlịch thực hành" as UC13
+    usecase "Quản lý tài khoản\nvà tham số bộ giải" as UC14
+  }
+}
+
+' ===== Bố cục: xếp cột dọc theo thứ tự nghiệp vụ =====
+UC1 -[hidden]down- UC2
+UC2 -[hidden]down- UC3
+UC3 -[hidden]down- UC4
+
+UC5 -[hidden]down- UC6
+UC6 -[hidden]down- UC10
+UC10 -[hidden]down- UC9
+UC9 -[hidden]down- UC11
+UC11 -[hidden]down- UC12
+
+UC6 -[hidden]right- UC8
+UC6 -[hidden]right- UC7
+UC8 -[hidden]down- UC7
+
+UC13 -[hidden]down- UC14
+
+' ===== Giáo vụ (bên trái) =====
+GV -- UC1
+GV -- UC2
+GV -- UC3
+GV -- UC4
+GV -- UC5
+GV -- UC6
+GV -- UC9
+GV -- UC10
+GV -- UC11
+GV -- UC12
+
+' ===== Quản trị viên và Sinh viên (bên phải) =====
+UC13 -- SV
+UC14 -- QT
+
+' ===== Quan hệ giữa các use case =====
+UC4 ..> UC1 : <<extend>>
+UC4 ..> UC2 : <<extend>>
+UC4 ..> UC3 : <<extend>>
+
+UC6 ..> UC7 : <<include>>
+UC9 ..> UC7 : <<include>>
+UC10 ..> UC6 : <<include>>
+UC8 ..> UC6 : <<extend>>
+
+note as N1
+Tiền điều kiện: Người dùng đã
+đăng nhập và có quyền phù hợp.
+end note
+
+note right of UC8
+Kích hoạt khi bộ giải báo vô nghiệm
+do các ràng buộc không thể đồng thời thỏa mãn.
+Gợi ý kiểm tra dữ liệu, bổ sung phòng/ca
+hoặc điều chỉnh ràng buộc theo thẩm quyền.
+end note
+
+note right of UC11
+Chỉ công bố lịch
+sau khi được phê duyệt.
+end note
+
+note right of UC13
+Chỉ xem được lịch
+đã công bố.
+end note
+
+@enduml
