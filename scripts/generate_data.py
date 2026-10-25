@@ -105,21 +105,6 @@ fake = Faker('vi_VN')
 fake.add_provider(VietnameseNameProvider)
 connection = get_master_connection()
 cursor = connection.cursor()
-cursor.execute("SELECT @@port AS port, DATABASE() AS db, CURRENT_USER() AS u")
-print(cursor.fetchone())
-cursor.execute("SHOW CREATE TABLE sinh_vien")
-print(cursor.fetchone()['Create Table'])
-print()
-print(cursor.fetchone())
-cursor.execute("SHOW CREATE TABLE phong_may")
-print(cursor.fetchone()['Create Table'])
-print()
-print(cursor.fetchone())
-cursor.execute("SHOW CREATE TABLE mon_thi")
-print(cursor.fetchone()['Create Table'])
-cursor.execute("SELECT @@server_id AS sid, @@hostname AS host, COUNT(*) AS n FROM sinh_vien")
-print(cursor.fetchone())
-print("Connected to:", connection.host, connection.port)
 
 
 def normalize_name(name):
@@ -194,7 +179,7 @@ def generated_rooms(n):
         building = "A" if i < (n + 1) // 2 else "B"
         floor = random.randint(2, 5)
         code = f"P{building}{floor}{i + 1:03d}"  # e.g. PA2001 (unique through i + 1)
-        operating_sys = "Window 11"
+        operating_sys = "Windows 11"
         
         data = {
             "ma_phong": code,
@@ -203,7 +188,7 @@ def generated_rooms(n):
             "tang": floor,
             "suc_chua": random.choice(ROOM_CAPACITIES),
             "he_dieu_hanh": operating_sys,
-            "tinh_trang": "Maintainence" if random.random() < 0.05 else "Working"
+            "tinh_trang": "Maintenance" if random.random() < 0.05 else "Working"
         }
         rooms.append(data)
 

@@ -45,6 +45,8 @@ CREATE TABLE phong_may (
     PRIMARY KEY (ma_phong),
     CONSTRAINT chk_pm_suc_chua CHECK (suc_chua > 0)
 ) ENGINE=InnoDB;
+
+ALTER TABLE phong_may MODIFY tinh_trang ENUM('Working','Maintenance') NOT NULL DEFAULT 'Working';
  
 -- M:N room <-> software
 CREATE TABLE phong_may_phan_mem (
@@ -112,3 +114,16 @@ CREATE TABLE dang_ky_thi (
     CONSTRAINT fk_dk_lich FOREIGN KEY (ma_lich) REFERENCES lich_thi(ma_lich) ON DELETE CASCADE,
     CONSTRAINT chk_dk_diem CHECK (diem IS NULL OR diem BETWEEN 0 AND 10)
 ) ENGINE=InnoDB;
+
+SELECT * FROM sinh_vien;
+SELECT * FROM dang_ky_thi;
+SELECT * FROM khung_gio;
+SELECT * FROM lich_thi;
+SELECT * FROM mon_thi;
+SELECT * FROM mon_thi_phan_mem;
+SELECT * FROM phan_mem;
+SELECT * FROM phong_may;
+SELECT * FROM phong_may_phan_mem;
+
+SHOW MASTER STATUS;
+SHOW SLAVE STATUS;
