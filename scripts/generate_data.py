@@ -2,11 +2,15 @@ import sys
 import os
 # Add parent directory to path to allow importing from 'backend'
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# pyrefly: ignore[missing-import]
 from faker import Faker
+# pyrefly: ignore[missing-import]
 from faker.providers import BaseProvider
 from src.backend.db_helper import get_master_connection
+from src.algo.exam_scheduler import schedule_cp_sat
 import random
 from datetime import date, time, timedelta
+# pyrefly: ignore[missing-import]
 from unidecode import unidecode
 import unicodedata 
 
@@ -474,9 +478,15 @@ def main():
         raw_subject_sw = generated_subject_software(raw_subjects)
         insert_subject_software(connection, raw_subject_sw)
 
-        # Phase 3: Exam sessions and seating (require everything above)
-        raw_sessions, raw_registrations, unscheduled = generated_exam_schedule(
-            raw_students, raw_subjects, raw_rooms, raw_room_sw, raw_subject_sw, raw_slots)
+        # Phase 3: Exam sessions and seating (using CP-SAT optimizer)
+        print("Running CP-SAT Exam Scheduler...")
+        raw_sessions, raw_registrations, unscheduled, stats = schedule_cp_sat(
+            raw_students, raw_subjects, raw_rooms, raw_room_sw, raw_subject_sw, raw_slots
+        )
+        print(f"Solver Status: {stats.get('status')} in {stats.get('solve_time', 0):.2f}s")
+        if stats.get('status') in ('OPTIMAL', 'FEASIBLE'):
+            print(f"Stats: Z1={stats.get('Z1')}, Z2={stats.get('Z2')}, rooms_opened={stats.get('rooms_opened')}")
+
         insert_sessions(connection, raw_sessions)
         insert_registrations(connection, raw_registrations)
 
