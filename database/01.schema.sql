@@ -135,8 +135,8 @@ CREATE TABLE dang_ky_thi (
 SELECT * FROM sinh_vien;
 SELECT * FROM dang_ky_thi;
 SELECT * FROM khung_gio;
-SELECT * FROM phuong_an;
 SELECT * FROM lich_thi;
+SELECT * FROM phuong_an;
 SELECT * FROM mon_thi;
 SELECT * FROM mon_thi_phan_mem;
 SELECT * FROM phan_mem;
