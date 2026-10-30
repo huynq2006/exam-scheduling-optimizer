@@ -4,7 +4,6 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from faker import Faker
 from faker.providers import BaseProvider
-from src.backend.db_helper import get_master_connection
 import random
 from datetime import date, time, timedelta
 from unidecode import unidecode
@@ -48,6 +47,9 @@ SUBJECT_CATALOG = [
     ("INT1421", "Trí tuệ nhân tạo", 3, 90, "Practical", ["Python", "PyCharm"]),
 ]
 
+# Must match ENUM('Working','Maintenance') in phong_may.tinh_trang (01_schema.sql)
+STATUS_MAINTENANCE = "Maintenance"
+
 # phong_may hardware profile 
 ROOM_CAPACITIES = [30, 36, 40, 45, 50, 60]
 
@@ -70,7 +72,7 @@ TIME_SLOTS = [(time(7, 0), time(9, 0)), (time(9, 30), time(11, 30)),
 class VietnameseNameProvider(BaseProvider):
     """
     Custom Faker provider to generate realistic Vietnamese names (Family - Middle - Given),
-    consistent with the gender stored in sinh_vien.gioi_tinh ('Nam' / 'Nữ').
+    consistent with the gender stored in sinh_vien.gioi_tinh ('Nam' / 'Nu').
     """
     def vn_last_name(self):
         last_names = [
@@ -103,10 +105,6 @@ class VietnameseNameProvider(BaseProvider):
 # Initialize Faker with Vietnamese locale and register custom name provider
 fake = Faker('vi_VN')
 fake.add_provider(VietnameseNameProvider)
-connection = get_master_connection()
-cursor = connection.cursor()
-
-
 def normalize_name(name):
     """
     Removes accents (diacritics), converts to lowercase, and removes spaces
@@ -188,7 +186,7 @@ def generated_rooms(n):
             "tang": floor,
             "suc_chua": random.choice(ROOM_CAPACITIES),
             "he_dieu_hanh": operating_sys,
-            "tinh_trang": "Maintenance" if random.random() < 0.05 else "Working"
+            "tinh_trang": STATUS_MAINTENANCE if random.random() < 0.05 else "Working"
         }
         rooms.append(data)
 
@@ -269,7 +267,7 @@ def generated_exam_schedule(students, subjects, rooms, room_software, subject_so
     lich_thi + dang_ky_thi.
     Greedy scheduler that respects:
       - room must contain all software required by the subject
-      - room must be 'Hoạt động' and the group size must not exceed suc_chua
+      - room must be 'Working' and the group size must not exceed suc_chua
       - one session per (room, slot)            -> UNIQUE uq_phong_khung
       - one student per machine in a session    -> UNIQUE uq_lich_may
       - a student never sits two exams in the same slot (rule the schema cannot enforce)
@@ -347,7 +345,6 @@ def insert_software(connection, data_list):
              VALUES (%s, %s, %s)"""
     values = [(d['ma_pm'], d['ten_pm'], d['phien_ban']) for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
 def insert_students(connection, data_list):
@@ -357,7 +354,6 @@ def insert_students(connection, data_list):
     values = [(d['ma_sv'], d['ho_ten'], d['ngay_sinh'], unicodedata.normalize('NFC', d['gioi_tinh']), d['email'],
                d['so_dien_thoai'], d['lop'], d['khoa'], d['khoa_hoc']) for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
 def insert_rooms(connection, data_list):
@@ -366,7 +362,6 @@ def insert_rooms(connection, data_list):
              VALUES (%s, %s, %s, %s, %s, %s, %s)"""
     values = [(d['ma_phong'], d['ten_phong'], d['toa_nha'], d['tang'], d['suc_chua'], d['he_dieu_hanh'], d['tinh_trang']) for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
 def insert_room_software(connection, data_list):
@@ -375,7 +370,6 @@ def insert_room_software(connection, data_list):
              VALUES (%s, %s)"""
     values = [(d['ma_phong'], d['ma_pm']) for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
 def insert_subjects(connection, data_list):
@@ -385,7 +379,6 @@ def insert_subjects(connection, data_list):
     values = [(d['ma_mon'], d['ten_mon'], d['so_tin_chi'], d['thoi_luong_phut'], d['hinh_thuc'])
               for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
 def insert_subject_software(connection, data_list):
@@ -394,7 +387,6 @@ def insert_subject_software(connection, data_list):
              VALUES (%s, %s)"""
     values = [(d['ma_mon'], d['ma_pm']) for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
 def insert_time_slots(connection, data_list):
@@ -404,16 +396,22 @@ def insert_time_slots(connection, data_list):
     values = [(d['ma_khung'], d['ngay_thi'], d['ca_thi'], d['gio_bat_dau'], d['gio_ket_thuc'])
               for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
-def insert_sessions(connection, data_list):
+def insert_plan(connection, name, note=None):
+    """Create a draft plan (phuong_an) and return its id."""
     cursor = connection.cursor()
-    sql = """INSERT INTO lich_thi (ma_lich, ma_mon, ma_phong, ma_khung)
-             VALUES (%s, %s, %s, %s)"""
-    values = [(d['ma_lich'], d['ma_mon'], d['ma_phong'], d['ma_khung']) for d in data_list]
+    cursor.execute("INSERT INTO phuong_an (ten_pa, trang_thai, ghi_chu) VALUES (%s, 'NHAP', %s)",
+                   (name, note))
+    return cursor.lastrowid
+
+
+def insert_sessions(connection, data_list, ma_pa):
+    cursor = connection.cursor()
+    sql = """INSERT INTO lich_thi (ma_lich, ma_pa, ma_mon, ma_phong, ma_khung)
+             VALUES (%s, %s, %s, %s, %s)"""
+    values = [(d['ma_lich'], ma_pa, d['ma_mon'], d['ma_phong'], d['ma_khung']) for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
 
 
 def insert_registrations(connection, data_list):
@@ -422,71 +420,108 @@ def insert_registrations(connection, data_list):
              VALUES (%s, %s, %s, %s)"""
     values = [(d['ma_sv'], d['ma_lich'], d['so_may'], d['diem']) for d in data_list]
     cursor.executemany(sql, values)
-    connection.commit()
+
+
+# Child tables first, so DELETE never violates a foreign key.
+CLEAR_ORDER = ["dang_ky_thi", "lich_thi", "phuong_an", "mon_thi_phan_mem", "phong_may_phan_mem",
+               "khung_gio", "mon_thi", "phong_may", "phan_mem", "sinh_vien"]
+
+
+def generate_all(connection, n_students, n_subjects, n_rooms, n_days, seed=None, log=print,
+                 publish=True):
+    """
+    Replace the whole dataset inside ONE transaction: if anything fails, the previous data
+    is restored (rollback). Returns a summary dict (used by the Streamlit page).
+    """
+    if min(n_students, n_subjects, n_rooms, n_days) < 1:
+        raise ValueError("All quantities must be >= 1")
+    if seed is not None:
+        random.seed(seed)
+        Faker.seed(seed)
+
+    cursor = connection.cursor()
+    try:
+        # Master/replica guard: never write to a read-only node (a replica).
+        cursor.execute("SELECT @@read_only AS ro")
+        row = cursor.fetchone()
+        if (row["ro"] if isinstance(row, dict) else row[0]):
+            raise RuntimeError("Node hiện tại ở chế độ chỉ đọc (read_only=1, có thể là replica). "
+                               "Hãy kết nối vào MASTER để sinh dữ liệu.")
+
+        # Plans that are not in 'NHAP' are locked by triggers (02_views_triggers.sql):
+        # unlock them first so the wipe below is allowed. Same transaction => rolled back on error.
+        cursor.execute("UPDATE phuong_an SET trang_thai = 'NHAP'")
+        for table in CLEAR_ORDER:
+            cursor.execute(f"DELETE FROM {table}")
+
+        # Phase 1: master data (no foreign keys)
+        raw_software = generated_software()
+        insert_software(connection, raw_software)
+        raw_students = generated_students(n_students)
+        insert_students(connection, raw_students)
+        raw_rooms = generated_rooms(n_rooms)
+        insert_rooms(connection, raw_rooms)
+        raw_subjects = generated_subjects(n_subjects)
+        insert_subjects(connection, raw_subjects)
+        raw_slots = generated_time_slots(n_days)
+        insert_time_slots(connection, raw_slots)
+        log("Phase 1 done: master data")
+
+        # Phase 2: software relations
+        raw_room_sw = generated_room_software(raw_rooms)
+        insert_room_software(connection, raw_room_sw)
+        raw_subject_sw = generated_subject_software(raw_subjects)
+        insert_subject_software(connection, raw_subject_sw)
+        log("Phase 2 done: software relations")
+
+        # Phase 3: exam sessions and seating
+        raw_sessions, raw_registrations, unscheduled = generated_exam_schedule(
+            raw_students, raw_subjects, raw_rooms, raw_room_sw, raw_subject_sw, raw_slots)
+        ma_pa = insert_plan(connection, "Phương án mẫu (thuật toán tham lam)",
+                            "Sinh tự động bởi generate_data.py")
+        insert_sessions(connection, raw_sessions, ma_pa)
+        insert_registrations(connection, raw_registrations)
+        if publish:   # the sample plan becomes the official schedule students/proctors can see
+            cursor.execute("UPDATE phuong_an SET trang_thai = 'DA_CONG_BO' WHERE ma_pa = %s", (ma_pa,))
+        log("Phase 3 done: plan, sessions & registrations")
+
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        cursor.close()
+
+    return {
+        "ma_pa": ma_pa, "published": bool(publish),
+        "students": len(raw_students), "subjects": len(raw_subjects),
+        "rooms": len(raw_rooms),
+        "rooms_maintenance": sum(r["tinh_trang"] != "Working" for r in raw_rooms),
+        "slots": len(raw_slots), "sessions": len(raw_sessions),
+        "registrations": len(raw_registrations),
+        "unscheduled": len(unscheduled), "unscheduled_sample": unscheduled[:5],
+    }
 
 
 def main():
-    """
-    Main execution flow:
-    1. Collect user input for data volume.
-    2. Truncate existing tables to ensure a fresh dataset.
-    3. Execute generation and insertion in dependency order.
-    """
-    amt_of_students = int(input("Number of students:"))
-    amt_of_subjects = int(input("Number of exam subjects:"))
-    amt_of_rooms = int(input("Number of computer rooms:"))
-    cnt_exam_days = int(input("Number of exam days:"))
+    """CLI entry point: ask for the data volume, then call generate_all()."""
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from src.backend.db_helper import get_master_connection
 
+    amt_of_students = int(input("Number of students: "))
+    amt_of_subjects = int(input("Number of exam subjects: "))
+    amt_of_rooms = int(input("Number of computer rooms: "))
+    cnt_exam_days = int(input("Number of exam days: "))
+
+    connection = get_master_connection()
     try:
-        # Temporarily disable foreign key checks to allow TRUNCATE operations
-        cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
-        cursor.execute("TRUNCATE TABLE dang_ky_thi;")
-        cursor.execute("TRUNCATE TABLE lich_thi;")
-        cursor.execute("TRUNCATE TABLE mon_thi_phan_mem;")
-        cursor.execute("TRUNCATE TABLE phong_may_phan_mem;")
-        cursor.execute("TRUNCATE TABLE khung_gio;")
-        cursor.execute("TRUNCATE TABLE mon_thi;")
-        cursor.execute("TRUNCATE TABLE phong_may;")
-        cursor.execute("TRUNCATE TABLE phan_mem;")
-        cursor.execute("TRUNCATE TABLE sinh_vien;")
-        cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
-
-        # Phase 1: Master data (no foreign keys)
-        raw_software = generated_software()
-        insert_software(connection, raw_software)
-
-        raw_students = generated_students(amt_of_students)
-        insert_students(connection, raw_students)
-
-        raw_rooms = generated_rooms(amt_of_rooms)
-        insert_rooms(connection, raw_rooms)
-
-        raw_subjects = generated_subjects(amt_of_subjects)
-        insert_subjects(connection, raw_subjects)
-
-        raw_slots = generated_time_slots(cnt_exam_days)
-        insert_time_slots(connection, raw_slots)
-
-        # Phase 2: Software relations (require rooms/subjects/software)
-        raw_room_sw = generated_room_software(raw_rooms)
-        insert_room_software(connection, raw_room_sw)
-
-        raw_subject_sw = generated_subject_software(raw_subjects)
-        insert_subject_software(connection, raw_subject_sw)
-
-        # Phase 3: Exam sessions and seating (require everything above)
-        raw_sessions, raw_registrations, unscheduled = generated_exam_schedule(
-            raw_students, raw_subjects, raw_rooms, raw_room_sw, raw_subject_sw, raw_slots)
-        insert_sessions(connection, raw_sessions)
-        insert_registrations(connection, raw_registrations)
-
-        print(f"Exam sessions: {len(raw_sessions)}, registrations: {len(raw_registrations)}")
-        if unscheduled:
-            print(f"Unscheduled registrations (add rooms or exam days): {len(unscheduled)}")
-            print(f"First 5 unscheduled (student, subject): {unscheduled[:5]}")
-
+        summary = generate_all(connection, amt_of_students, amt_of_subjects,
+                               amt_of_rooms, cnt_exam_days)
+        print(f"Exam sessions: {summary['sessions']}, registrations: {summary['registrations']}")
+        if summary["unscheduled"]:
+            print(f"Unscheduled registrations (add rooms or exam days): {summary['unscheduled']}")
+            print(f"First 5 unscheduled (student, subject): {summary['unscheduled_sample']}")
         print("Data generation completed successfully.")
-
     finally:
         connection.close()
 

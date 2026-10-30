@@ -88,15 +88,32 @@ CREATE TABLE khung_gio (
     UNIQUE KEY uq_khung (ngay_thi, ca_thi),
     CONSTRAINT chk_kg_time CHECK (gio_ket_thuc > gio_bat_dau)
 ) ENGINE=InnoDB;
+
+-- ---------- 5b. PhuongAn (phiên bản lịch thi) ----------
+-- Vòng đời: NHAP -> CHO_DUYET -> DA_DUYET -> DA_CONG_BO -> LUU_TRU.
+-- Chỉ phương án NHAP mới được sửa (trigger trong 02_views_triggers.sql).
+CREATE TABLE phuong_an (
+    ma_pa      INT AUTO_INCREMENT PRIMARY KEY,
+    ten_pa     VARCHAR(120) NOT NULL,
+    trang_thai ENUM('NHAP','CHO_DUYET','DA_DUYET','DA_CONG_BO','LUU_TRU') NOT NULL DEFAULT 'NHAP',
+    tao_luc    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ghi_chu    VARCHAR(255) NULL,
+    -- NULL trừ khi đã công bố; UNIQUE => tối đa MỘT phương án được công bố tại một thời điểm
+    cong_bo    TINYINT AS (IF(trang_thai = 'DA_CONG_BO', 1, NULL)) STORED,
+    UNIQUE KEY uq_mot_cong_bo (cong_bo),
+    KEY idx_pa_trang_thai (trang_thai)
+) ENGINE=InnoDB;
  
--- ---------- 6. LichThi (one exam session = subject + room + slot) ----------
+-- ---------- 6. LichThi (one exam session = subject + room + slot, trong 1 phương án) ----------
 CREATE TABLE lich_thi (
     ma_lich   INT AUTO_INCREMENT PRIMARY KEY,
+    ma_pa     INT         NOT NULL,
     ma_mon    VARCHAR(10) NOT NULL,
     ma_phong  VARCHAR(10) NOT NULL,
     ma_khung  INT         NOT NULL,
-    UNIQUE KEY uq_phong_khung (ma_phong, ma_khung),  -- a room hosts one session per slot
+    UNIQUE KEY uq_pa_phong_khung (ma_pa, ma_phong, ma_khung),  -- trong 1 phương án, 1 phòng chỉ có 1 ca/khung giờ
     KEY idx_lich_mon (ma_mon),
+    CONSTRAINT fk_lt_pa    FOREIGN KEY (ma_pa)    REFERENCES phuong_an(ma_pa),
     CONSTRAINT fk_lt_mon   FOREIGN KEY (ma_mon)   REFERENCES mon_thi(ma_mon),
     CONSTRAINT fk_lt_phong FOREIGN KEY (ma_phong) REFERENCES phong_may(ma_phong),
     CONSTRAINT fk_lt_khung FOREIGN KEY (ma_khung) REFERENCES khung_gio(ma_khung)
@@ -124,6 +141,3 @@ SELECT * FROM mon_thi_phan_mem;
 SELECT * FROM phan_mem;
 SELECT * FROM phong_may;
 SELECT * FROM phong_may_phan_mem;
-
-SHOW MASTER STATUS;
-SHOW SLAVE STATUS;
