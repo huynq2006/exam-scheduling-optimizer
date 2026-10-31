@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, datetime
+from datetime import datetime
 import sys
 import importlib.util
 from decimal import Decimal
@@ -119,10 +119,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 # ==============================================================================
-# KẾT NỐI CSDL & TIỆN ÍCH TRUY VẤN
+# KẾT NỐI CSDL & TIỆN ÍCH TRUY VẤN (đọc dữ liệu thật từ schema quan_ly_thi)
 # ==============================================================================
 HERE = Path(__file__).resolve().parent
+# Tìm thư mục gốc dự án (nơi có src/backend/db_helper.py) để import được get_master_connection
 ROOT = next((p for p in [HERE, *HERE.parents] if (p / "src" / "backend").exists()), None)
 for _p in (ROOT, HERE):
     if _p and str(_p) not in sys.path:
@@ -131,7 +133,7 @@ for _p in (ROOT, HERE):
 try:
     from src.backend.db_helper import get_master_connection
     DB_IMPORT_ERROR = None
-except Exception as exc:
+except Exception as exc:  # noqa: BLE001 - hiển thị lỗi cho người dùng thay vì crash
     get_master_connection = None
     DB_IMPORT_ERROR = exc
 
@@ -154,7 +156,7 @@ def _run_query(sql: str, params: tuple = ()) -> pd.DataFrame:
     finally:
         conn.close()
     df = pd.DataFrame(rows, columns=cols)
-    for c in df.columns:
+    for c in df.columns:  # Decimal (vd. dang_ky_thi.diem) -> float để hiển thị/tính toán
         if df[c].map(lambda v: isinstance(v, Decimal)).any():
             df[c] = df[c].astype(float)
     return df
@@ -162,22 +164,40 @@ def _run_query(sql: str, params: tuple = ()) -> pd.DataFrame:
 
 @st.cache_data(ttl=60, show_spinner=False)
 def query_df(sql: str, params: tuple = ()) -> pd.DataFrame:
-    """Bản có cache 60s."""
+    """Bản có cache 60s; nút 'Làm mới dữ liệu' hoặc việc sinh dữ liệu mới sẽ xoá cache."""
     return _run_query(sql, params)
 
 
 def db_ping():
+    """Kiểm tra kết nối + schema (bảng phuong_an và 2 view từ 02_views_triggers.sql)."""
     if get_master_connection is None:
         return False, f"Không import được src.backend.db_helper: {DB_IMPORT_ERROR}"
     try:
-        _run_query("SELECT COUNT(*) AS n FROM sinh_vien")
-        return True, ""
-    except Exception as exc:
+        conn = get_master_connection()
+    except Exception as exc:  # noqa: BLE001
         return False, str(exc)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) AS n FROM sinh_vien")
+        cur.fetchall()
+        try:
+            for sql in ("SELECT COUNT(*) AS n FROM phuong_an",
+                        "SELECT * FROM v_vi_pham LIMIT 0",
+                        "SELECT * FROM v_lich_thi_cong_bo LIMIT 0"):
+                cur.execute(sql)
+                cur.fetchall()
+        except Exception as exc:  # noqa: BLE001
+            return False, ("Thiếu bảng `phuong_an` hoặc view kiểm tra: chạy lại 01_schema.sql rồi "
+                           "02_views_triggers.sql.\n" + str(exc))
+        return True, ""
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)
+    finally:
+        conn.close()
 
 
 def load_generator():
-    """Nạp generate_data.py từ thư mục dự án."""
+    """Nạp generate_data.py (tìm ở thư mục app, thư mục gốc dự án và các thư mục con trực tiếp)."""
     dirs = [HERE]
     if ROOT:
         dirs += [ROOT, *sorted(p for p in ROOT.iterdir() if p.is_dir())]
@@ -204,6 +224,239 @@ SLOT_SQL = ("CAST(kg.ngay_thi AS CHAR) AS ngay_iso, kg.ca_thi, "
             "LEFT(CAST(kg.gio_ket_thuc AS CHAR), 5) AS gio_kt")
 SW_LIST = "GROUP_CONCAT(CONCAT(p.ten_pm, ' ', COALESCE(p.phien_ban, '')) ORDER BY p.ten_pm SEPARATOR ', ')"
 
+
+PLAN_LABEL = {"NHAP": "Nháp", "CHO_DUYET": "Chờ duyệt", "DA_DUYET": "Đã duyệt",
+              "DA_CONG_BO": "Đã công bố", "LUU_TRU": "Lưu trữ"}
+ALGO_OPTIONS = {"Tự động (CP-SAT, tham lam xếp bù phần còn lại)": "auto",
+                "CP-SAT (có thể bỏ môn không vừa)": "cpsat",
+                "Tham lam (nhanh, dùng nhiều phòng)": "greedy"}
+LOAI_LABEL = {"VUOT_SUC_CHUA": "Vượt sức chứa phòng", "THIEU_PHAN_MEM": "Phòng thiếu phần mềm",
+              "PHONG_BAO_TRI": "Phòng đang bảo trì", "SV_TRUNG_KHUNG_GIO": "SV trùng khung giờ",
+              "SO_MAY_NGOAI_PHONG": "Số máy vượt sức chứa"}
+
+
+def load_overview(ma_pa):
+    return query_df("""
+        SELECT (SELECT COUNT(*) FROM mon_thi) AS mon,
+               (SELECT COUNT(*) FROM phong_may) AS phong,
+               (SELECT COUNT(*) FROM phong_may WHERE tinh_trang = 'Working') AS phong_ok,
+               (SELECT COUNT(*) FROM sinh_vien) AS sv,
+               (SELECT COUNT(*) FROM lich_thi WHERE ma_pa = %s) AS lich,
+               (SELECT COUNT(*) FROM dang_ky_thi dk JOIN lich_thi lt ON lt.ma_lich = dk.ma_lich
+                 WHERE lt.ma_pa = %s) AS dk,
+               (SELECT COUNT(*) FROM khung_gio) AS khung""", (ma_pa, ma_pa)).iloc[0]
+
+
+def load_plans():
+    return query_df("""
+        SELECT p.ma_pa, p.ten_pa, p.trang_thai, CAST(p.tao_luc AS CHAR) AS tao_luc, p.ghi_chu,
+               (SELECT COUNT(*) FROM lich_thi lt WHERE lt.ma_pa = p.ma_pa) AS so_ca
+        FROM phuong_an p ORDER BY p.ma_pa DESC""")
+
+
+def load_violations(ma_pa):
+    """Các vi phạm ràng buộc cứng của một phương án (rỗng = hợp lệ)."""
+    return query_df("SELECT ma_lich, loai, chi_tiet FROM v_vi_pham WHERE ma_pa = %s ORDER BY loai, ma_lich",
+                    (ma_pa,))
+
+
+def load_sessions(ma_pa=None, published=False):
+    """Ca thi của một phương án; published=True đọc từ view lịch đã công bố (cho SV/giám thị)."""
+    src = "v_lich_thi_cong_bo" if published else "lich_thi"
+    where = "" if published else "WHERE lt.ma_pa = %s"
+    return query_df(f"""
+        SELECT lt.ma_lich, lt.ma_pa, {SLOT_SQL}, lt.ma_mon, mt.ten_mon, lt.ma_phong,
+               pm.suc_chua, pm.toa_nha, pm.tang,
+               (SELECT COUNT(*) FROM dang_ky_thi dk WHERE dk.ma_lich = lt.ma_lich) AS so_sv
+        FROM {src} lt
+        JOIN khung_gio kg ON kg.ma_khung = lt.ma_khung
+        JOIN mon_thi mt ON mt.ma_mon = lt.ma_mon
+        JOIN phong_may pm ON pm.ma_phong = lt.ma_phong
+        {where}
+        ORDER BY kg.ngay_thi, kg.ca_thi, lt.ma_phong""", () if published else (ma_pa,))
+
+
+# ------------------------------------------------------------------------------
+# GHI DỮ LIỆU: mọi thao tác ghi chạy trên MASTER, trong 1 giao dịch
+# ------------------------------------------------------------------------------
+def friendly_db_error(exc) -> str:
+    msg = str(exc)
+    code = exc.args[0] if getattr(exc, "args", None) and isinstance(exc.args[0], int) else None
+    if code == 1062 or "Duplicate entry" in msg:
+        return ("Xung đột dữ liệu: phòng/khung giờ hoặc số máy vừa bị người khác chiếm. "
+                "Hãy làm mới dữ liệu rồi thử lại.")
+    if "Phuong an da khoa" in msg:
+        return ("Phương án đang bị khóa (không ở trạng thái Nháp). "
+                "Hãy tạo bản nháp từ phương án này để chỉnh sửa.")
+    return msg
+
+
+def _fetch(cur, sql, args=None):
+    cur.execute(sql, args)
+    return _rows(cur)[0]
+
+
+def _tx(work):
+    """Chạy work(cur) -> (ok, [thông báo], extra) trong một giao dịch; commit nếu ok, ngược lại rollback."""
+    conn = get_master_connection()
+    try:
+        cur = conn.cursor()
+        if _fetch(cur, "SELECT @@read_only AS ro")[0]["ro"]:
+            return False, ["Node CSDL đang ở chế độ chỉ đọc (replica?). Cần kết nối vào MASTER để ghi."], None
+        ok, msgs, extra = work(cur)
+        conn.commit() if ok else conn.rollback()
+        return ok, msgs, extra
+    except Exception as exc:  # noqa: BLE001
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        return False, [friendly_db_error(exc)], None
+    finally:
+        conn.close()
+
+
+def _room_errors(cur, ses, room_code, need):
+    """Kiểm tra phòng `room_code` có nhận được `need` sinh viên của ca `ses` không."""
+    rows = _fetch(cur, "SELECT tinh_trang, suc_chua FROM phong_may WHERE ma_phong = %s", (room_code,))
+    if not rows:
+        return ["Phòng không tồn tại."]
+    room, errors = rows[0], []
+    if room["tinh_trang"] != "Working":
+        errors.append("Phòng đang bảo trì.")
+    if need > room["suc_chua"]:
+        errors.append(f"Phòng chỉ có {room['suc_chua']} máy nhưng cần {need} chỗ.")
+    missing = [r["ten_pm"] for r in _fetch(
+        cur, """SELECT p.ten_pm FROM mon_thi_phan_mem r JOIN phan_mem p ON p.ma_pm = r.ma_pm
+                WHERE r.ma_mon = %s AND r.ma_pm NOT IN
+                      (SELECT ma_pm FROM phong_may_phan_mem WHERE ma_phong = %s)""",
+        (ses["ma_mon"], room_code))]
+    if missing:
+        errors.append("Phòng thiếu phần mềm: " + ", ".join(missing))
+    if _fetch(cur, """SELECT 1 AS x FROM lich_thi WHERE ma_pa = %s AND ma_phong = %s AND ma_khung = %s
+                      AND ma_lich <> %s""", (ses["ma_pa"], room_code, ses["ma_khung"], ses["ma_lich"])):
+        errors.append("Phòng đã có ca thi khác trong cùng khung giờ.")
+    return errors
+
+
+def _renumber(cur, ma_lich):
+    """Đánh số máy lại 1..n (giữ nguyên thứ tự cũ) để không bị 'lủng' số."""
+    regs = _fetch(cur, "SELECT ma_sv FROM dang_ky_thi WHERE ma_lich = %s ORDER BY so_may", (ma_lich,))
+    cur.execute("UPDATE dang_ky_thi SET so_may = so_may + 10000 WHERE ma_lich = %s", (ma_lich,))  # tránh trùng UNIQUE
+    cur.executemany("UPDATE dang_ky_thi SET so_may = %s WHERE ma_lich = %s AND ma_sv = %s",
+                    [(i, ma_lich, r["ma_sv"]) for i, r in enumerate(regs, start=1)])
+
+
+def _lock_session(cur, ma_lich):
+    rows = _fetch(cur, "SELECT ma_lich, ma_pa, ma_mon, ma_khung FROM lich_thi WHERE ma_lich = %s FOR UPDATE",
+                  (ma_lich,))
+    return rows[0] if rows else None
+
+
+def move_session(ma_lich: int, new_room: str):
+    """Đổi phòng cho 1 ca thi. Số SV của ca không đổi (được tính từ dang_ky_thi), nhưng phải kiểm tra
+    phòng mới và đánh số máy lại nếu số máy đang bị 'lủng'."""
+    def work(cur):
+        ses = _lock_session(cur, ma_lich)
+        if not ses:
+            return False, ["Ca thi không còn tồn tại."], None
+        st = _fetch(cur, "SELECT COUNT(*) AS n, COALESCE(MAX(so_may), 0) AS mx FROM dang_ky_thi "
+                         "WHERE ma_lich = %s FOR UPDATE", (ma_lich,))[0]
+        errors = _room_errors(cur, ses, new_room, st["n"])
+        if errors:
+            return False, errors, None
+        if st["mx"] != st["n"]:          # số máy không liên tục -> đánh số lại để vừa phòng mới
+            _renumber(cur, ma_lich)
+        cur.execute("UPDATE lich_thi SET ma_phong = %s WHERE ma_lich = %s", (new_room, ma_lich))
+        return True, [f"Đã chuyển ca thi #{ma_lich} sang phòng {new_room}."], None
+    return _tx(work)
+
+
+def candidate_rooms(ma_lich: int, need: int) -> pd.DataFrame:
+    """Phòng có thể nhận `need` sinh viên của ca: hoạt động, đủ máy, đủ phần mềm, rảnh trong khung giờ."""
+    return _run_query("""
+        SELECT r.ma_phong, r.suc_chua FROM phong_may r
+        JOIN lich_thi s ON s.ma_lich = %s
+        WHERE r.tinh_trang = 'Working' AND r.suc_chua >= %s
+          AND NOT EXISTS (SELECT 1 FROM mon_thi_phan_mem q WHERE q.ma_mon = s.ma_mon AND NOT EXISTS
+                (SELECT 1 FROM phong_may_phan_mem i WHERE i.ma_phong = r.ma_phong AND i.ma_pm = q.ma_pm))
+          AND NOT EXISTS (SELECT 1 FROM lich_thi o WHERE o.ma_pa = s.ma_pa AND o.ma_khung = s.ma_khung
+                          AND o.ma_phong = r.ma_phong)
+        ORDER BY r.suc_chua, r.ma_phong""", (int(ma_lich), int(need)))
+
+
+def split_session(ma_lich: int, k: int, new_room: str):
+    """Tách ca: chuyển k sinh viên (những người có số máy cuối) sang một ca mới cùng môn, cùng khung giờ,
+    ở phòng khác. Cả hai ca được đánh số máy lại; mọi bước nằm trong một giao dịch."""
+    def work(cur):
+        ses = _lock_session(cur, ma_lich)
+        if not ses:
+            return False, ["Ca thi không còn tồn tại."], None
+        regs = _fetch(cur, "SELECT ma_sv FROM dang_ky_thi WHERE ma_lich = %s ORDER BY so_may FOR UPDATE", (ma_lich,))
+        n = len(regs)
+        if not 1 <= k <= n - 1:
+            return False, [f"Số sinh viên chuyển phải từ 1 đến {n - 1}."], None
+        errors = _room_errors(cur, ses, new_room, k)
+        if errors:
+            return False, errors, None
+        cur.execute("INSERT INTO lich_thi (ma_pa, ma_mon, ma_phong, ma_khung) VALUES (%s, %s, %s, %s)",
+                    (ses["ma_pa"], ses["ma_mon"], new_room, ses["ma_khung"]))
+        new_id = cur.lastrowid
+        cur.executemany("UPDATE dang_ky_thi SET ma_lich = %s, so_may = %s WHERE ma_lich = %s AND ma_sv = %s",
+                        [(new_id, i, ma_lich, r["ma_sv"]) for i, r in enumerate(regs[n - k:], start=1)])
+        left = _fetch(cur, "SELECT COALESCE(MAX(so_may), 0) AS mx FROM dang_ky_thi WHERE ma_lich = %s",
+                      (ma_lich,))[0]["mx"]
+        if left != n - k:
+            _renumber(cur, ma_lich)
+        return True, [f"Đã tách ca #{ma_lich}: {k} SV sang ca mới #{new_id} (phòng {new_room}), "
+                      f"{n - k} SV ở lại."], new_id
+    return _tx(work)
+
+
+def clone_plan(src_pa: int):
+    """Tạo bản nháp từ một phương án (sao chép ca thi + chỗ ngồi) để chỉnh sửa / lập lại lịch."""
+    from datetime import datetime
+
+    def work(cur):
+        src = _fetch(cur, "SELECT ten_pa FROM phuong_an WHERE ma_pa = %s", (src_pa,))
+        if not src:
+            return False, ["Phương án nguồn không tồn tại."], None
+        cur.execute("INSERT INTO phuong_an (ten_pa, trang_thai, ghi_chu) VALUES (%s, 'NHAP', %s)",
+                    (f"Bản nháp từ #{src_pa} ({datetime.now():%d/%m %H:%M})", f"Sao chép từ phương án #{src_pa}"))
+        new_pa = cur.lastrowid
+        cur.execute("INSERT INTO lich_thi (ma_pa, ma_mon, ma_phong, ma_khung) "
+                    "SELECT %s, ma_mon, ma_phong, ma_khung FROM lich_thi WHERE ma_pa = %s", (new_pa, src_pa))
+        cur.execute("""INSERT INTO dang_ky_thi (ma_sv, ma_lich, so_may, diem)
+                       SELECT dk.ma_sv, nl.ma_lich, dk.so_may, dk.diem
+                       FROM dang_ky_thi dk
+                       JOIN lich_thi ol ON ol.ma_lich = dk.ma_lich AND ol.ma_pa = %s
+                       JOIN lich_thi nl ON nl.ma_pa = %s AND nl.ma_phong = ol.ma_phong AND nl.ma_khung = ol.ma_khung""",
+                    (src_pa, new_pa))
+        return True, [f"Đã tạo bản nháp #{new_pa} từ phương án #{src_pa}."], new_pa
+    return _tx(work)
+
+
+def set_plan_status(ma_pa: int, new_status: str, allowed_from, need_clean: bool = False):
+    """Chuyển trạng thái phương án (có kiểm tra trạng thái hiện tại và, nếu cần, không còn vi phạm)."""
+    def work(cur):
+        row = _fetch(cur, "SELECT trang_thai FROM phuong_an WHERE ma_pa = %s FOR UPDATE", (ma_pa,))
+        if not row:
+            return False, ["Phương án không tồn tại."], None
+        cur_status = row[0]["trang_thai"]
+        if cur_status not in allowed_from:
+            return False, [f"Phương án đang ở trạng thái '{PLAN_LABEL[cur_status]}', "
+                           f"không thể chuyển sang '{PLAN_LABEL[new_status]}'."], None
+        if need_clean:
+            n = _fetch(cur, "SELECT COUNT(*) AS n FROM v_vi_pham WHERE ma_pa = %s", (ma_pa,))[0]["n"]
+            if n:
+                return False, [f"Còn {n} vi phạm ràng buộc. Hãy xử lý trước khi chuyển trạng thái."], None
+        if new_status == "DA_CONG_BO":      # chỉ một phương án được công bố: lưu trữ bản cũ
+            cur.execute("UPDATE phuong_an SET trang_thai = 'LUU_TRU' WHERE trang_thai = 'DA_CONG_BO' AND ma_pa <> %s",
+                        (ma_pa,))
+        cur.execute("UPDATE phuong_an SET trang_thai = %s WHERE ma_pa = %s", (new_status, ma_pa))
+        return True, [f"Phương án #{ma_pa}: '{PLAN_LABEL[cur_status]}' → '{PLAN_LABEL[new_status]}'."], None
+    return _tx(work)
+
 # ==============================================================================
 # DỮ LIỆU MẪU (MOCK DATA KHI CHƯA KẾT NỐI ĐƯỢC MYSQL)
 # ==============================================================================
@@ -229,11 +482,11 @@ MOCK_ROOMS = pd.DataFrame({
 })
 
 MOCK_STUDENTS = pd.DataFrame({
-    "MSSV": ["20210001", "20210002", "20210003", "20210004", "20210005", "20210006"],
+    "MSSV": ["SV21090001", "SV21090002", "SV21090003", "SV21090004", "SV21090005", "SV21090006"],
     "Họ tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Cường", "Phạm Minh Đức", "Hoàng Thuỳ Linh", "Vũ Quốc Tuấn"],
     "Ngày sinh": ["2003-05-15", "2003-08-22", "2002-11-04", "2003-01-19", "2003-09-30", "2002-07-12"],
     "Giới tính": ["Nam", "Nữ", "Nam", "Nam", "Nữ", "Nam"],
-    "Email": ["an.nv210001@sis.edu.vn", "binh.tt210002@sis.edu.vn", "cuong.lh210003@sis.edu.vn", "duc.pm210004@sis.edu.vn", "linh.ht210005@sis.edu.vn", "tuan.vq210006@sis.edu.vn"],
+    "Email": ["an.nv21090001@sis.edu.vn", "binh.tt21090002@sis.edu.vn", "cuong.lh21090003@sis.edu.vn", "duc.pm21090004@sis.edu.vn", "linh.ht21090005@sis.edu.vn", "tuan.vq21090006@sis.edu.vn"],
     "SĐT": ["0987111222", "0987222333", "0987333444", "0987444555", "0987555666", "0987666777"],
     "Lớp": ["CNTT K21A", "CNTT K21A", "CNTT K21B", "KTPM K21A", "HTTT K21B", "CNTT K21B"],
     "Khoa": ["Khoa CNTT", "Khoa CNTT", "Khoa CNTT", "Khoa CNTT", "Khoa Hệ thống thông tin", "Khoa CNTT"],
@@ -319,7 +572,7 @@ def load_sessions_data(is_mock: bool):
     return st.session_state["mock_sessions"].copy()
 
 # ==============================================================================
-# QUẢN LÝ TÀI KHOẢN MẪU
+# TÀI KHOẢN HỆ THỐNG
 # ==============================================================================
 ACCOUNTS = {
     "giaovu": {
@@ -335,14 +588,6 @@ ACCOUNTS = {
         "role": "Giám thị (Cán bộ coi thi)",
         "dept": "Khoa Công nghệ thông tin",
         "email": "nva@university.edu.vn"
-    },
-    "sinhvien": {
-        "password": "sinhvien",
-        "name": "Nguyễn Văn An",
-        "role": "Sinh viên",
-        "dept": "Lớp CNTT K21A - MSSV: 20210001",
-        "email": "an.nv210001@sis.edu.vn",
-        "ma_sv": "20210001"
     },
     "admin": {
         "password": "admin",
@@ -371,26 +616,30 @@ def authenticate_user(username: str, password: str, is_mock: bool):
             **ACCOUNTS[uname]
         }, None
 
-    # 2. Kiểm tra nếu đăng nhập bằng mã SV trong CSDL (khi kết nối DB)
+    if pwd != uname:
+        return None, "Sai tên đăng nhập hoặc mật khẩu."
+
+    # 2. Sinh viên dùng MSSV làm cả tên đăng nhập và mật khẩu.
     if not is_mock:
         try:
             sv_rows = query_df("SELECT ma_sv, ho_ten, lop, khoa, email FROM sinh_vien WHERE ma_sv = %s", (uname,))
-            if not sv_rows.empty and (pwd == uname or pwd == "sinhvien" or pwd == "123"):
-                r = sv_rows.iloc[0]
-                return {
-                    "username": r["ma_sv"],
-                    "name": r["ho_ten"],
-                    "role": "Sinh viên",
-                    "dept": f"Lớp {r['lop']} - {r['khoa']}",
-                    "email": r["email"],
-                    "ma_sv": r["ma_sv"]
-                }, None
-        except Exception:
-            pass
+        except Exception as exc:
+            return None, f"Không thể tra cứu thông tin sinh viên: {exc}"
+        if not sv_rows.empty:
+            r = sv_rows.iloc[0]
+            return {
+                "username": r["ma_sv"],
+                "name": r["ho_ten"],
+                "role": "Sinh viên",
+                "dept": f"Lớp {r['lop']} - {r['khoa']}",
+                "email": r["email"],
+                "ma_sv": r["ma_sv"]
+            }, None
+        return None, "Sai tên đăng nhập hoặc mật khẩu."
 
-    # 3. Kiểm tra nếu đăng nhập bằng mã SV trong Mock Data
+    # Dùng dữ liệu mô phỏng khi ứng dụng đang chạy không có CSDL.
     sv_mock = MOCK_STUDENTS[MOCK_STUDENTS["MSSV"] == uname]
-    if not sv_mock.empty and (pwd == uname or pwd == "sinhvien" or pwd == "123"):
+    if not sv_mock.empty:
         r = sv_mock.iloc[0]
         return {
             "username": r["MSSV"],
@@ -401,7 +650,7 @@ def authenticate_user(username: str, password: str, is_mock: bool):
             "ma_sv": r["MSSV"]
         }, None
 
-    return None, "Sai tên đăng nhập hoặc mật khẩu! (Gợi ý: giaovu/giaovu, giamthi/giamthi, admin/admin, sinhvien/sinhvien)"
+    return None, "Sai tên đăng nhập hoặc mật khẩu."
 
 def logout_user():
     st.session_state["logged_in"] = False
@@ -434,7 +683,7 @@ if not st.session_state["logged_in"]:
             st.subheader("🔐 Đăng nhập hệ thống")
             
             with st.form("login_form"):
-                uname_input = st.text_input("Tên đăng nhập / Mã sinh viên", placeholder="VD: giaovu, giamthi, sinhvien, admin hoặc 20210001")
+                uname_input = st.text_input("Tên đăng nhập / Mã sinh viên")
                 pwd_input = st.text_input("Mật khẩu", type="password", placeholder="Nhập mật khẩu")
                 login_btn = st.form_submit_button("Đăng nhập", type="primary", use_container_width=True)
                 
@@ -447,14 +696,6 @@ if not st.session_state["logged_in"]:
                     else:
                         st.error(f"❌ {err}")
 
-            with st.expander("💡 Tài khoản mẫu kiểm thử nhanh"):
-                st.markdown("""
-                - **Giáo vụ:** `giaovu` / `giaovu`
-                - **Giám thị:** `giamthi` / `giamthi`
-                - **Sinh viên:** `sinhvien` / `sinhvien` hoặc mã SV `20210001` (mật khẩu = mã SV)
-                - **Quản trị IT:** `admin` / `admin`
-                """)
-
             if not db_online:
                 st.caption(f"ℹ️ Đang chạy ở chế độ **Dữ liệu mô phỏng (Demo)** do chưa kết nối MySQL.")
 
@@ -464,7 +705,7 @@ if not st.session_state["logged_in"]:
 else:
     user = st.session_state["current_user"]
     user_role = user["role"]
-    
+
     # -------------------------------------------------------------------------
     # SIDEBAR: THÔNG TIN TÀI KHOẢN & PHÂN QUYỀN
     # -------------------------------------------------------------------------
@@ -482,8 +723,7 @@ else:
                 st.caption("Khởi động MySQL container để đồng bộ dữ liệu thật.")
 
         st.divider()
-        
-        # Hộp thông tin cá nhân của người dùng đã xác thực
+
         st.markdown(f"""
         <div class="user-profile-box">
             <div style="font-weight: 700; font-size: 15px; color: #1E293B;">👤 {user['name']}</div>
@@ -505,10 +745,13 @@ else:
         # Nút Đăng xuất
         if st.button("🚪 Đăng xuất", use_container_width=True):
             logout_user()
-            
+
+        if st.button("🔄 Làm mới dữ liệu", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
         st.divider()
-        
-        # Phân quyền danh mục Menu chỉ dành riêng cho vai trò đã đăng nhập
+
         if user_role == "Giáo vụ (Quản lý đào tạo)":
             menu_items = [
                 "📊 Tổng quan điều hành",
@@ -536,9 +779,9 @@ else:
                 "👥 Quản lý tài khoản & Phân quyền",
                 "🛠️ Giám sát & Hỗ trợ kỹ thuật"
             ]
-            
+
         selected_page = st.radio("Chức năng của bạn", menu_items)
-        
+
         st.divider()
         st.caption(f"Đăng nhập với ID: `{user['username']}`")
 
@@ -566,7 +809,7 @@ else:
                     "Giai đoạn": ["1. Chuẩn bị dữ liệu", "2. Thiết lập ràng buộc", "3. Tạo & kiểm tra lịch", "4. Duyệt & Công bố", "5. Tra cứu & Báo cáo"],
                     "Hành động": [
                         "Nhập học phần, phòng máy, giám thị",
-                        "Cấu hình ràng buộc cứng & mục tiêu mềm",
+                        "Thiết lập quy định và tiêu chí xếp lịch",
                         "Bộ giải ILP/CSP tối ưu lịch thi",
                         "Phê duyệt & phát hành lịch thi",
                         "Sinh viên & Giám thị xem lịch"
@@ -712,8 +955,8 @@ else:
                 st.download_button("📥 Tải file mẫu danh mục học phần & phòng máy (.xlsx)", data=b"Sample Excel Template", file_name="mau_nhap_lieu_lich_thi.xlsx")
 
         elif selected_page == "⚙️ Quy chuẩn & Tiêu chí xếp lịch":
-            st.title("⚙️ Cấu hình ràng buộc cứng & Mục tiêu mềm (UC5)")
-            st.caption("Thiết lập quy chế thi chuẩn mực của Nhà trường và tùy biến các tiêu chí tối ưu hóa.")
+            st.title("⚙️ Quy định và tiêu chí xếp lịch thi (UC5)")
+            st.caption("Thiết lập các quy định cần tuân thủ và chọn tiêu chí ưu tiên khi xếp lịch.")
 
             st.markdown("##### 📌 Chọn nhanh kịch bản tổ chức thi (Preset Profiles)")
             c_p1, c_p2, c_p3 = st.columns(3)
@@ -746,8 +989,8 @@ else:
             col_left, col_right = st.columns([1, 1], gap="large")
 
             with col_left:
-                st.subheader("🔒 Ràng buộc cứng - Bắt buộc (Hard Constraints)")
-                st.caption("Các nguyên tắc bắt buộc theo Quy chế đào tạo — bộ giải thỏa mãn 100%:")
+                st.subheader("🔒 Quy định bắt buộc")
+                st.caption("Các quy định của nhà trường mà mọi phương án xếp lịch phải tuân thủ:")
 
                 rules_data = [
                     {
@@ -795,8 +1038,8 @@ else:
                     """, unsafe_allow_html=True)
 
             with col_right:
-                st.subheader("🎯 Mục tiêu mềm - Tối ưu hóa (Soft Objectives)")
-                st.caption("Tùy biến trọng số để bộ giải tìm phương án khoa học, thuận tiện nhất:")
+                st.subheader("🎯 Tiêu chí ưu tiên khi xếp lịch")
+                st.caption("Chọn phương án phù hợp nhất với nhu cầu tổ chức kỳ thi:")
 
                 gap_choices = [
                     "Giãn cách 1 - 2 ngày (Khuyên dùng)",
@@ -1016,7 +1259,7 @@ else:
             
             sv_list = pd.DataFrame({
                 "Vị trí máy": ["Máy 01", "Máy 02", "Máy 03", "Máy 04", "Máy 05", "Máy 06"],
-                "MSSV": ["20210001", "20210002", "20210003", "20210004", "20210005", "20210006"],
+                "MSSV": ["SV21090001", "SV21090002", "SV21090003", "SV21090004", "SV21090005", "SV21090006"],
                 "Họ và tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Cường", "Phạm Minh Đức", "Hoàng Thuỳ Linh", "Vũ Quốc Tuấn"],
                 "Lớp": ["CNTT K21A", "CNTT K21A", "CNTT K21B", "KTPM K21A", "HTTT K21B", "CNTT K21B"],
                 "Điểm danh": ["Có mặt", "Có mặt", "Vắng", "Có mặt", "Có mặt", "Có mặt"]
@@ -1028,6 +1271,7 @@ else:
         elif selected_page == "⚠️ Báo cáo sự cố phòng thi/máy":
             st.title("⚠️ Báo cáo sự cố thiết bị tại phòng thi")
             st.caption("Gửi cảnh báo tức thời tới IT Helpdesk")
+            room_opts = query_df("SELECT ma_phong FROM phong_may ORDER BY ma_phong")["ma_phong"].tolist() or ["(chưa có phòng)"]
             with st.form("incident_form"):
                 room_pick = st.selectbox("Phòng xảy ra sự cố", ["PM.01", "PM.02", "PM.03 (GPU)", "PM.04"])
                 issue_type = st.selectbox("Loại sự cố", ["Hỏng chuột/bàn phím/máy tính", "Mất kết nối mạng nộp bài", "Lỗi phần mềm/thiếu compiler", "Sự cố điện/điều hòa"])
