@@ -2,11 +2,14 @@ import sys
 import os
 # Add parent directory to path to allow importing from 'backend'
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# pyrefly: ignore[missing-import]
 from faker import Faker
+# pyrefly: ignore[missing-import]
 from faker.providers import BaseProvider
 import random
 from collections import defaultdict
 from datetime import date, time, timedelta
+# pyrefly: ignore[missing-import]
 from unidecode import unidecode
 import unicodedata 
 
