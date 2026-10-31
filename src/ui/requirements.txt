@@ -1,0 +1,7 @@
+streamlit
+pandas<3
+pymysql
+python-dotenv
+Faker
+Unidecode
+ortools
