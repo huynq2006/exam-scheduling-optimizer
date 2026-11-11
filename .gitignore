@@ -1,0 +1,39 @@
+# Secrets and local environment configuration
+.env
+.env.*
+!.env.example
+**/.streamlit/secrets.toml
+**/.streamlit/credentials.toml
+
+# JavaScript / Next.js
+node_modules/
+.next/
+.next-*/
+.next.*/
+out/
+*.tsbuildinfo
+.vercel/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local data and generated files
+/data/uploads/*
+/data/exports/*
+/data/mock_data/*
+!/data/uploads/.gitkeep
+!/data/exports/.gitkeep
+!/data/mock_data/.gitkeep
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.perch/
+.vscode/*
+!.vscode/settings.json

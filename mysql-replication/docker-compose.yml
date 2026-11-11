@@ -14,8 +14,12 @@ services:
       - internal_db_net
     volumes:
       - ./master.cnf:/etc/mysql/conf.d/master.cnf
+      - ./entrypoint.sh:/usr/local/bin/fix-cnf-perms.sh:ro
       - ../database:/docker-entrypoint-initdb.d
       - master-data:/var/lib/mysql
+    # File .cnf mount từ Windows là 777 nên MySQL bỏ qua; hạ quyền trước khi khởi động.
+    entrypoint: ["/bin/bash", "/usr/local/bin/fix-cnf-perms.sh"]
+    command: ["mysqld"]
 
   # Slave Database Server
   mysql-slave:
@@ -33,7 +37,10 @@ services:
     volumes:
       # Nạp cấu hình slave từ thư mục hiện tại
       - ./slave.cnf:/etc/mysql/conf.d/slave.cnf
+      - ./entrypoint.sh:/usr/local/bin/fix-cnf-perms.sh:ro
       - slave-data:/var/lib/mysql
+    entrypoint: ["/bin/bash", "/usr/local/bin/fix-cnf-perms.sh"]
+    command: ["mysqld"]
 
 networks:
   internal_db_net:
