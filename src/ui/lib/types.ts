@@ -141,3 +141,71 @@ export interface SolveResult {
   ranAt: string;
   params: SolverParams;
 }
+
+/* ------------------------------------------------------------------ */
+/* Trạng thái dự thi của sinh viên                                     */
+/*                                                                     */
+/* Sinh viên bị cấm thi KHÔNG bị xoá khỏi ca thi. Trạng thái chỉ để    */
+/* tô màu và ghi chú, phòng thi vẫn giữ đủ danh sách để đối chiếu.     */
+/* ------------------------------------------------------------------ */
+
+export type ExamStatus = "CHUA_NOP_HOC_PHI" | "CAM_THI";
+
+export interface StudentExamStatus {
+  maSv: string;
+  /** null = áp dụng cho mọi học phần của sinh viên */
+  maMon: string | null;
+  trangThai: ExamStatus;
+  lyDo: string | null;
+  nguon: "IMPORT_CSV" | "THU_CONG";
+  capNhatLuc: string;
+}
+
+/** Một dòng trong danh sách dự thi của một ca thi. */
+export interface RosterEntry {
+  maSv: string;
+  hoTen: string;
+  lop: string;
+  khoa: string;
+  soMay: number;
+  diem: number | null;
+  trangThai: ExamStatus | null;
+  lyDo: string | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Kết quả đọc một file CSV cấm thi                                    */
+/* ------------------------------------------------------------------ */
+
+export interface ImportRowError {
+  dong: number;
+  maSv: string;
+  lyDo: string;
+}
+
+export interface ImportPreview {
+  tenFile: string;
+  tongDong: number;
+  hopLe: number;
+  /** Sinh viên có trong DB và sẽ được cập nhật */
+  khop: number;
+  /** Mã sinh viên không tồn tại trong DB */
+  khongTonTai: number;
+  /** Dòng bị bỏ vì trùng mã trong cùng file */
+  trungLap: number;
+  errors: ImportRowError[];
+  rows: ImportPreviewRow[];
+}
+
+export interface ImportPreviewRow {
+  dong: number;
+  maSv: string;
+  hoTen: string | null;
+  lop: string | null;
+  maMon: string | null;
+  trangThai: ExamStatus;
+  lyDo: string | null;
+  hopLe: boolean;
+  loi?: string;
+}
+

@@ -48,7 +48,7 @@ export default function MyExamsPage() {
       <>
         <PageHeader eyebrow="Tra cứu" title="Lịch thi của tôi" desc="Đang tải lịch thi…" />
         <Card>
-          <p className="py-10 text-center text-[13px] text-ink-500">Đang đọc dữ liệu từ MySQL…</p>
+          <p className="py-10 text-center text-[13px] text-ink-500">Đang tải…</p>
         </Card>
       </>
     );
@@ -82,7 +82,7 @@ export default function MyExamsPage() {
         <Card>
           <EmptyState
             title="Chưa có lịch thi nào được công bố"
-            desc="Bạn chưa đăng ký môn thi nào, hoặc Phòng Đào tạo chưa công bố lịch thi học kỳ này. Lịch sẽ hiện ở đây ngay khi được công bố."
+            desc="Bạn chưa đăng ký môn thi nào, hoặc Phòng Đào tạo chưa công bố lịch học kỳ này."
             icon={<CalendarX2 className="h-6 w-6" />}
           />
         </Card>
@@ -135,7 +135,7 @@ export default function MyExamsPage() {
         <Stat
           label="Trạng thái lịch"
           value="Đã công bố"
-          hint="Chỉ hiển thị phương án Phòng Đào tạo đã công bố"
+          hint="Chỉ hiển thị phương án đã công bố"
           icon={<CheckCircle2 className="h-4 w-4" />}
           tone="success"
         />
@@ -183,7 +183,7 @@ export default function MyExamsPage() {
         <div className="p-5 pb-3">
           <CardHeader
             title="Toàn bộ lịch thi"
-            desc="Mỗi dòng là một ca thi của bạn: ngày nào, ca mấy, môn nào, phòng nào, ngồi máy số mấy."
+            desc="Mỗi dòng là một ca thi của bạn."
             action={<Badge tone="neutral">{exams.length} ca</Badge>}
           />
         </div>
@@ -244,8 +244,7 @@ export default function MyExamsPage() {
         <div className="flex items-start gap-2.5 text-[12.5px] leading-relaxed text-ink-500">
           <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-ink-300" />
           <span>
-            Nếu thấy trùng giờ hoặc sai phòng, báo ngay cho Phòng Đào tạo trước ngày thi. Lịch này
-            lấy từ phương án đã công bố, nên mọi thay đổi sau đó sẽ được cập nhật lại tại đây.
+            Nếu thấy trùng giờ hoặc sai phòng, báo ngay cho Phòng Đào tạo trước ngày thi.
           </span>
         </div>
       </Card>

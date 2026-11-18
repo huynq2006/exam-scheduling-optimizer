@@ -16,6 +16,14 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Một vùng cuộn duy nhất cho cả ứng dụng: cửa sổ không cuộn, nội dung cuộn.
+   Khi mở bảng trượt hay menu điện thoại, khoá luôn vùng đó để trang không
+   trôi phía sau. */
+html[data-scroll-lock] [data-scroll-region],
+html[data-scroll-lock] body {
+  overflow: hidden;
+}
+
 ::selection {
   @apply bg-accent-200 text-accent-900;
 }
@@ -70,10 +78,12 @@ body {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
+/* Chỉ giữ opacity ở trạng thái cuối, không giữ transform: một transform còn
+   hiệu lực sẽ biến phần tử thành containing block cho position: fixed bên
+   trong, làm drawer/menu neo sai chỗ. */
 .animate-rise {
   animation: rise 0.28s ease-out both;
 }

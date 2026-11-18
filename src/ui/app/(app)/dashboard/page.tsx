@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   CalendarDays,
-  CheckCircle2,
   DoorOpen,
   GraduationCap,
   Play,
@@ -25,9 +24,9 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <>
-        <PageHeader eyebrow={`Xin chào, ${user.name}`} title="Xếp lịch thi học kỳ" desc="Đang tải dữ liệu từ cơ sở dữ liệu…" />
+        <PageHeader eyebrow={`Xin chào, ${user.name}`} title="Xếp lịch thi học kỳ" desc="Đang tải dữ liệu…" />
         <Card>
-          <p className="py-10 text-center text-[13px] text-ink-500">Đang đọc dữ liệu từ MySQL…</p>
+          <p className="py-10 text-center text-[13px] text-ink-500">Đang tải dữ liệu…</p>
         </Card>
       </>
     );
@@ -69,7 +68,7 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow={`Xin chào, ${user.name}`}
         title="Xếp lịch thi học kỳ"
-        desc="Khu vực làm việc của Phòng Đào tạo: kiểm tra dữ liệu, xếp lịch thi, rồi đọc và xuất lịch cho các khoa."
+        desc="Kiểm tra dữ liệu, xếp lịch thi, rồi xem và xuất lịch cho các khoa."
         action={
           <Link href="/solve">
             <Button variant="primary">
@@ -117,11 +116,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader
             title="Lần xếp lịch gần nhất"
-            desc={
-              result
-                ? "Kết quả thật của lần chạy gần nhất trong phiên làm việc này."
-                : "Chưa xếp lịch lần nào trong phiên làm việc này."
-            }
+            desc={result ? "Lần chạy gần nhất." : "Chưa xếp lịch trong phiên này."}
             action={
               result ? (
                 <Badge tone={statusOf(result.stats.status).tone}>
@@ -196,7 +191,7 @@ export default function DashboardPage() {
                   </span>
                 </li>
                 <li className="flex items-center justify-between">
-                  <span>Thời gian hệ thống chạy</span>
+                  <span>Thời gian chạy</span>
                   <span className="tabular-nums font-medium text-ink-900">
                     {result.stats.solveTime.toFixed(1)} giây
                   </span>
@@ -224,9 +219,7 @@ export default function DashboardPage() {
             </>
           ) : (
             <div className="mt-6 rounded-lg border border-dashed border-ink-300 px-4 py-10 text-center">
-              <p className="text-[13px] leading-relaxed text-ink-500">
-                Chưa có lịch thi nào. Bấm nút bên dưới để hệ thống xếp lịch từ dữ liệu hiện tại.
-              </p>
+              <p className="text-[13px] leading-relaxed text-ink-500">Chưa có lịch thi nào.</p>
               <Link href="/solve">
                 <Button variant="primary" size="sm" className="mt-3">
                   <Play className="h-3.5 w-3.5" />
@@ -238,7 +231,7 @@ export default function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Các bước làm việc" desc="Làm đúng thứ tự này là xong một kỳ thi." />
+          <CardHeader title="Các bước làm việc" />
           <ol className="mt-4 space-y-3">
             {[
               {
@@ -249,12 +242,12 @@ export default function DashboardPage() {
               {
                 href: "/solve",
                 label: "2. Xếp lịch",
-                desc: "Chọn thời gian chờ rồi bấm xếp. Hệ thống tự tìm cách xếp hợp lý nhất.",
+                desc: "Chọn thời gian chờ rồi bấm xếp.",
               },
               {
                 href: "/solution",
                 label: "3. Đọc và dùng lịch",
-                desc: "Xem lịch theo ngày, theo học phần; biết học phần nào chưa xếp được và vì sao.",
+                desc: "Xem theo ngày, theo học phần; biết học phần nào chưa xếp được và vì sao.",
               },
             ].map((s) => (
               <li key={s.href}>
@@ -272,13 +265,6 @@ export default function DashboardPage() {
             ))}
           </ol>
 
-          <div className="mt-4 flex items-start gap-2 border-t border-ink-100 pt-3">
-            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-            <p className="text-[11.5px] leading-relaxed text-ink-500">
-              Lịch hệ thống xếp ra luôn thoả các điều kiện bắt buộc: không trùng phòng, không trùng
-              giờ của một sinh viên, phòng đủ phần mềm cho môn thi.
-            </p>
-          </div>
         </Card>
       </div>
     </>
