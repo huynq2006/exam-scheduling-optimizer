@@ -7,9 +7,14 @@ Differences from the demo xep_lich_thi.py:
   * a subject may be split over several rooms in the same slot (sum K_r * x >= n_c * y)
   * a student group = a distinct set of enrolled subjects (identical sets share constraints)
   * skip[c] slack makes the model always feasible; skipped subjects are reported as unscheduled
+  * a subject too big for ONE slot (n_c > total seats of the rooms that fit it in one room-sized part)
+    is split into parts "<ma_mon>#1", "<ma_mon>#2", ... (students grouped by class). Each part is a
+    scheduling unit placed in its own slot, so a big subject is spread over several slots instead of
+    being skipped. Sessions/unscheduled always report the ORIGINAL ma_mon.
 
 Pure Python: it does NOT touch the database. Put it in src/algo/exam_scheduler.py.
 """
+import math
 import random
 from collections import defaultdict
 
@@ -41,13 +46,19 @@ def schedule_cp_sat(students, subjects, rooms, room_software, subject_software, 
                     enrolled=None, min_subjects=3, max_subjects=5,
                     alpha=1, beta=3, gamma=1, skip_penalty=1000,
                     time_limit=30, seed=42, workers=8,
-                    working_status="Working", random_scores=True):
+                    working_status="Working", random_scores=True,
+                    split_subjects=True, max_part_size=None):
     """
     Returns (sessions, registrations, unscheduled, stats) - the first three have exactly the
     shape of the greedy scheduler, so insert_sessions / insert_registrations stay unchanged.
+
+    split_subjects : split subjects that do not fit all eligible rooms into parts
+    max_part_size  : cap on students per part; default = combined capacity of eligible rooms
     """
     if enrolled is None:
         enrolled = build_enrollment(students, subjects, min_subjects, max_subjects)
+    if max_part_size is not None and max_part_size < 1:
+        raise ValueError("max_part_size must be positive")
 
     C = [s["ma_mon"] for s in subjects]
     n = {c: len(enrolled[c]) for c in C}
@@ -69,6 +80,34 @@ def schedule_cp_sat(students, subjects, rooms, room_software, subject_software, 
     sw_need = defaultdict(set)
     for link in subject_software:
         sw_need[link["ma_mon"]].add(link["ma_pm"])
+
+    # Split only when all compatible rooms together cannot seat the subject in one slot.
+    parent = {c: c for c in C}                       # unit id -> original ma_mon
+    if split_subjects:
+        lop_of = {s.get("ma_sv"): s.get("lop", "") for s in students}
+        units, unit_enrolled = [], {}
+        for c in C:
+            eligible = [r for r in R if sw_need[c] <= sw_room[r]]
+            cap = min(max_part_size, sum(K[r] for r in eligible)) if max_part_size else sum(K[r] for r in eligible)
+            if cap <= 0 or n[c] <= cap:              # fits (or can never be placed): keep as is
+                units.append(c)
+                unit_enrolled[c] = enrolled[c]
+                continue
+            k = math.ceil(n[c] / cap)
+            size = math.ceil(n[c] / k)
+            ordered = sorted(enrolled[c], key=lambda sv: (lop_of.get(sv, ""), sv))
+            for i in range(k):
+                chunk = ordered[i * size:(i + 1) * size]
+                if not chunk:
+                    continue
+                uid = f"{c}#{i + 1}"
+                units.append(uid)
+                unit_enrolled[uid] = chunk
+                parent[uid] = c
+                sw_need[uid] = sw_need[c]
+                duration[uid] = duration[c]
+        C, enrolled = units, unit_enrolled
+        n = {c: len(enrolled[c]) for c in C}
 
     # f[c,r]: room has all software the subject needs
     f = {(c, r): sw_need[c] <= sw_room[r] for c in C for r in R}
@@ -123,6 +162,17 @@ def schedule_cp_sat(students, subjects, rooms, room_software, subject_software, 
     for cs in groups:
         for t in T:
             model.Add(sum(Y(c, t) for c in cs) <= 1)
+    # Every active exam day uses at least two distinct shifts, so daily proctor
+    # assignments can satisfy the minimum-two-shifts rule.
+    active_day = {d: model.NewBoolVar(f"active_day_{i}") for i, d in enumerate(days)}
+    used_shift = {t: model.NewBoolVar(f"used_shift_{t}") for t in T}
+    for t in T:
+        scheduled = sum(Y(c, t) for c in C)
+        model.Add(scheduled >= used_shift[t])
+        model.Add(scheduled <= len(C) * used_shift[t])
+        model.Add(used_shift[t] <= active_day[slot_day[t]])
+    for d in days:
+        model.Add(sum(used_shift[t] for t in T if slot_day[t] == d) >= 2 * active_day[d])
     # C7: room opened
     for (c, r, t), var in x.items():
         model.Add(var <= w[r])
@@ -150,7 +200,7 @@ def schedule_cp_sat(students, subjects, rooms, room_software, subject_software, 
     stats = {"status": status_name, "solve_time": solver.WallTime()}
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         for c in C:
-            unscheduled.extend((sv, c) for sv in enrolled[c])
+            unscheduled.extend((sv, parent[c]) for sv in enrolled[c])
         return sessions, registrations, unscheduled, stats
 
     # decode: seat students room by room
@@ -169,17 +219,18 @@ def schedule_cp_sat(students, subjects, rooms, room_software, subject_software, 
             if not group:
                 continue  # room opened but not needed (cannot happen with gamma > 0, safe anyway)
             ma_lich += 1
-            sessions.append({"ma_lich": ma_lich, "ma_mon": c, "ma_phong": r, "ma_khung": t})
+            sessions.append({"ma_lich": ma_lich, "ma_mon": parent[c], "ma_phong": r, "ma_khung": t})
             for seat, sv in enumerate(group, start=1):
                 score = round(min(10, max(0, random.gauss(6.8, 1.6))), 2) if random_scores else None
                 registrations.append({"ma_sv": sv, "ma_lich": ma_lich, "so_may": seat, "diem": score})
     for c in C:
         if solver.Value(skip[c]):
-            unscheduled.extend((sv, c) for sv in enrolled[c])
+            unscheduled.extend((sv, parent[c]) for sv in enrolled[c])
 
     z1 = len(T) * sum(solver.Value(v) for v in w.values()) - len(sessions)
     z2 = sum(group_count[cs] * solver.Value(p[gi, d]) for gi, cs in enumerate(groups) for d in days)
     stats.update(Z1=z1, Z2=z2, objective=solver.ObjectiveValue(), best_bound=solver.BestObjectiveBound(),
                  rooms_opened=sum(solver.Value(v) for v in w.values()), sessions=len(sessions),
-                 unscheduled_subjects=sum(solver.Value(v) for v in skip.values()))
+                 unscheduled_subjects=sum(solver.Value(v) for v in skip.values()),   # = skipped parts
+                 parts=len(C))
     return sessions, registrations, unscheduled, stats

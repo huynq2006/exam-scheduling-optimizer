@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     subjects: dataset.subjects,
     rooms: dataset.rooms,
     slots: dataset.slots,
-    students: dataset.students.map((s) => ({ ma_sv: s.maSv })),
+    students: dataset.students.map((s) => ({ ma_sv: s.maSv, lop: s.lop })),
     enrollment: dataset.enrollment,
     params,
     randomScores: true,

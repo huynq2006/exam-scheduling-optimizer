@@ -3,8 +3,8 @@
 Usage:
     python scripts/run_generate.py [n_students] [n_subjects] [n_rooms] [n_days] [seed]
 
-Keeps the interactive main() in generate_data.py untouched; this just supplies
-the arguments so the dataset can be regenerated from a script or CI.
+This supplies data-volume arguments so the dataset can be regenerated from a
+script or CI; the backend selects its scheduling strategy automatically.
 """
 import os
 import sys
@@ -35,7 +35,6 @@ def main():
             n_rooms,
             n_days,
             seed=seed,
-            algorithm="auto",
             time_limit=30,
         )
     finally:

@@ -145,15 +145,13 @@ export async function fetchStudents(): Promise<Student[]> {
 }
 
 /**
- * Đăng ký môn = các cặp (sinh viên, môn) thật trong dang_ky_thi.
- * Một môn có thể mở nhiều ca ở nhiều phòng, nên phải DISTINCT theo (ma_sv, ma_mon).
+ * Đăng ký môn là đầu vào độc lập với lịch đã xếp, được lưu trong dang_ky_mon.
  */
 export async function fetchEnrollment(): Promise<Enrollment[]> {
   const rows = await query<EnrollmentRow>(`
-    SELECT DISTINCT d.ma_sv, l.ma_mon
-      FROM dang_ky_thi d
-      JOIN lich_thi l ON l.ma_lich = d.ma_lich
-     ORDER BY d.ma_sv, l.ma_mon
+    SELECT ma_sv, ma_mon
+      FROM dang_ky_mon
+     ORDER BY ma_sv, ma_mon
   `);
 
   return rows.map((r) => ({ maSv: r.ma_sv, maMon: r.ma_mon }));

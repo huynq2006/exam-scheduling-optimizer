@@ -21,7 +21,20 @@ CREATE TABLE sinh_vien (
     PRIMARY KEY (ma_sv),
     UNIQUE KEY uq_sv_email (email),
     KEY idx_sv_lop (lop),
-    CONSTRAINT chk_sv_khoa_hoc CHECK (khoa_hoc BETWEEN 2000 AND 2100)
+    CONSTRAINT chk_sv_khoa_hoc CHECK (khoa_hoc BETWEEN 2020 AND 2026),
+    trang_thai ENUM('Hop le', 'Chua nop hoc phi', 'Cam thi') NOT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE giam_thi (
+	ma_gt VARCHAR(12) NOT NULL,
+	ho_ten VARCHAR(100) NOT NULL,
+    ngay_sinh   DATE         NOT NULL,
+    gioi_tinh   ENUM('Nam','Nu') NOT NULL,
+    email       VARCHAR(120) NOT NULL,
+    so_dien_thoai VARCHAR(15),
+    khoa        VARCHAR(80)  NOT NULL,
+    PRIMARY KEY (ma_gt),
+    UNIQUE KEY uq_gt_email (email)
 ) ENGINE=InnoDB;
 
 ALTER TABLE quan_ly_thi.sinh_vien MODIFY COLUMN gioi_tinh ENUM('Nam','Nu') NOT NULL;
@@ -67,6 +80,15 @@ CREATE TABLE mon_thi (
     PRIMARY KEY (ma_mon),
     CONSTRAINT chk_mt_tc CHECK (so_tin_chi BETWEEN 1 AND 6),
     CONSTRAINT chk_mt_tl CHECK (thoi_luong_phut BETWEEN 15 AND 240)
+) ENGINE=InnoDB;
+
+-- Sinh viên đăng ký môn nào (đầu vào độc lập với lịch thi đã xếp).
+CREATE TABLE dang_ky_mon (
+    ma_sv  VARCHAR(12) NOT NULL,
+    ma_mon VARCHAR(10) NOT NULL,
+    PRIMARY KEY (ma_sv, ma_mon),
+    CONSTRAINT fk_dkm_sv  FOREIGN KEY (ma_sv)  REFERENCES sinh_vien(ma_sv) ON DELETE CASCADE,
+    CONSTRAINT fk_dkm_mon FOREIGN KEY (ma_mon) REFERENCES mon_thi(ma_mon) ON DELETE CASCADE
 ) ENGINE=InnoDB;
  
 -- Software each exam requires
@@ -118,6 +140,20 @@ CREATE TABLE lich_thi (
     CONSTRAINT fk_lt_phong FOREIGN KEY (ma_phong) REFERENCES phong_may(ma_phong),
     CONSTRAINT fk_lt_khung FOREIGN KEY (ma_khung) REFERENCES khung_gio(ma_khung)
 ) ENGINE=InnoDB;
+
+-- Gắn giám thị với buổi thi; ngày/ca được xác định từ ma_khung, không lưu trùng dữ liệu.
+CREATE TABLE phan_cong_giam_thi (
+    ma_pa    INT         NOT NULL,
+    ma_gt    VARCHAR(12) NOT NULL,
+    ma_lich  INT         NOT NULL,
+    ma_khung INT         NOT NULL,
+    PRIMARY KEY (ma_pa, ma_gt, ma_lich),
+    UNIQUE KEY uq_pa_gt_khung (ma_pa, ma_gt, ma_khung),
+    KEY idx_pcgt_lich (ma_lich),
+    CONSTRAINT fk_pcgt_gt FOREIGN KEY (ma_gt) REFERENCES giam_thi(ma_gt) ON DELETE CASCADE,
+    CONSTRAINT fk_pcgt_pa FOREIGN KEY (ma_pa) REFERENCES phuong_an(ma_pa) ON DELETE CASCADE,
+    CONSTRAINT fk_pcgt_lich FOREIGN KEY (ma_lich) REFERENCES lich_thi(ma_lich) ON DELETE CASCADE
+) ENGINE=InnoDB;
  
 -- ---------- 7. DangKyThi (student seated in a session) ----------
 CREATE TABLE dang_ky_thi (
@@ -133,6 +169,8 @@ CREATE TABLE dang_ky_thi (
 ) ENGINE=InnoDB;
 
 SELECT * FROM sinh_vien;
+SELECT * FROM giam_thi;
+SELECT * FROM phan_cong_giam_thi;
 SELECT * FROM dang_ky_thi;
 SELECT * FROM khung_gio;
 SELECT * FROM lich_thi;
