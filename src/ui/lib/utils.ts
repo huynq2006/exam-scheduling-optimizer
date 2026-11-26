@@ -5,8 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(iso: string) {
-  const [y, m, d] = iso.split("-");
+export function formatDate(iso?: string) {
+  if (!iso) return "—";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  const [y, m, d] = parts;
   return `${d}/${m}/${y}`;
 }
 
@@ -19,8 +22,10 @@ export function formatDateTime(iso: string) {
 
 export const WEEKDAY = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
 
-export function weekdayOf(iso: string) {
+export function weekdayOf(iso?: string) {
+  if (!iso) return "—";
   const dt = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(dt.getTime())) return "—";
   return WEEKDAY[dt.getDay()];
 }
 

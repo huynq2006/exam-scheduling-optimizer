@@ -35,8 +35,8 @@ import {
 
 export default function SolutionPage() {
   const { result } = useApp();
-  const { subjects: SUBJECTS, rooms: ROOMS, slots: SLOTS, loading, error, reload } = useDataset();
-  const { statuses } = useAllStatuses();
+  const { subjects: SUBJECTS, rooms: ROOMS, slots: SLOTS, students: STUDENTS, loading, error, reload } = useDataset();
+  const { statuses, reload: reloadStatuses } = useAllStatuses();
 
   const [day, setDay] = useState("all");
   const [mon, setMon] = useState("all");
@@ -46,6 +46,7 @@ export default function SolutionPage() {
   const ROOM_BY_CODE = useMemo(() => new Map(ROOMS.map((r) => [r.maPhong, r])), [ROOMS]);
   const SLOT_BY_CODE = useMemo(() => new Map(SLOTS.map((s) => [s.maKhung, s])), [SLOTS]);
   const SUBJECT_BY_CODE = useMemo(() => new Map(SUBJECTS.map((s) => [s.maMon, s])), [SUBJECTS]);
+  const STUDENT_BY_CODE = useMemo(() => new Map(STUDENTS.map((s) => [s.maSv, s])), [STUDENTS]);
 
   /**
    * Mỗi ca thi được làm giàu thêm số sinh viên bị vướng trạng thái.
@@ -486,7 +487,14 @@ export default function SolutionPage() {
         </Card>
       )}
 
-      <RosterDrawer target={open} onClose={() => setOpen(null)} />
+      <RosterDrawer
+        target={open}
+        seats={open ? result.registrations.filter((r) => r.maLich === open.maLich) : undefined}
+        students={STUDENT_BY_CODE}
+        statuses={statuses}
+        onStatusChanged={reloadStatuses}
+        onClose={() => setOpen(null)}
+      />
     </>
   );
 }

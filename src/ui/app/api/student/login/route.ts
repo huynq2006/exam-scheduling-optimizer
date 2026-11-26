@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * Đăng nhập sinh viên bằng mã số sinh viên.
  *
- * Quy ước: mật khẩu chính là MSSV (giống bản Streamlit cũ, để sinh viên không
+ * Quy ước: mật khẩu chính là MSSV (để sinh viên không
  * phải nhớ thêm gì). Vì vậy route này KHÔNG phải một cơ chế xác thực thật sự —
  * nó chỉ xác nhận "mã này có trong danh sách sinh viên". Dữ liệu trả về cũng chỉ
  * gồm thông tin hiển thị được, không có số điện thoại hay điểm của người khác.

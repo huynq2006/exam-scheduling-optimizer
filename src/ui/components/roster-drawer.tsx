@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Search, UserCheck, Users } from "lucide-react";
 import { useRoster, useStatusMutations } from "@/lib/exam-status";
+import { effectiveStatus } from "@/lib/status-shared";
 import { examStatusOf, rowToneClass } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import type { ExamStatus, RosterEntry } from "@/lib/types";
+import type { ExamStatus, RosterEntry, SolveRegistration, Student, StudentExamStatus } from "@/lib/types";
 import { Badge, Button, EmptyState, Field, Table, inputClass, selectClass } from "./ui";
 import { Drawer, StatusPill } from "./status-ui";
 
@@ -42,20 +43,58 @@ export interface RosterTarget {
  */
 export function RosterDrawer({
   target,
+  seats,
+  students,
+  statuses,
+  onStatusChanged,
   onClose,
 }: {
   target: RosterTarget | null;
+  seats?: SolveRegistration[];
+  students?: Map<string, Student>;
+  statuses?: StudentExamStatus[];
+  onStatusChanged?: () => void;
   onClose: () => void;
 }) {
   const maLich = target?.maLich ?? null;
-  const { data, loading, error, reload } = useRoster(maLich);
-  const { busy, error: mutateError, setStatus, clearStatus } = useStatusMutations(reload);
+  const useLocal = Boolean(seats);
+  const { data, loading, error, reload } = useRoster(useLocal ? null : maLich);
+  const { busy, error: mutateError, setStatus, clearStatus } = useStatusMutations(() => {
+    if (!useLocal) reload();
+    onStatusChanged?.();
+  });
 
   const [filter, setFilter] = useState<Filter>("all");
   const [keyword, setKeyword] = useState("");
   const [editing, setEditing] = useState<RosterEntry | null>(null);
 
-  const roster = data?.roster ?? [];
+  useEffect(() => {
+    setFilter("all");
+    setKeyword("");
+    setEditing(null);
+  }, [maLich]);
+
+  const roster = useMemo<RosterEntry[]>(() => {
+    if (useLocal && seats && target) {
+      return [...seats]
+        .sort((a, b) => a.soMay - b.soMay)
+        .map((seat) => {
+          const st = students?.get(seat.maSv);
+          const eff = statuses ? effectiveStatus(statuses, seat.maSv, target.maMon) : null;
+          return {
+            maSv: seat.maSv,
+            hoTen: st?.hoTen ?? seat.maSv,
+            lop: st?.lop ?? "—",
+            khoa: st?.khoa ?? "—",
+            soMay: seat.soMay,
+            diem: seat.diem,
+            trangThai: eff?.trangThai ?? null,
+            lyDo: eff?.lyDo ?? null,
+          };
+        });
+    }
+    return data?.roster ?? [];
+  }, [useLocal, seats, target, students, statuses, data?.roster]);
 
   const counts = useMemo(
     () => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, RotateCcw, Save } from "lucide-react";
 import { useApp } from "@/lib/store";
 import type { SolverParams } from "@/lib/types";
@@ -40,6 +40,10 @@ export default function ParamsPage() {
   const { params, saveParams } = useApp();
   const [draft, setDraft] = useState<SolverParams>(params);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setDraft(params);
+  }, [params]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(params);
 

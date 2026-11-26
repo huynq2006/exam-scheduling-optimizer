@@ -101,13 +101,21 @@ export default function DashboardPage() {
         <Stat
           label="Ngày thi"
           value={`${examDays.length}`}
-          hint={`${formatDate(examDays[0])} – ${formatDate(examDays[examDays.length - 1])} · 4 ca/ngày`}
+          hint={
+            examDays.length
+              ? `${formatDate(examDays[0])} – ${formatDate(examDays[examDays.length - 1])} · 4 ca/ngày`
+              : "Chưa có khung giờ thi"
+          }
           icon={<CalendarDays className="h-4 w-4" />}
         />
         <Stat
           label="Lượt đăng ký môn"
           value={`${ENROLLMENT.length}`}
-          hint={`Trung bình ${Math.round((ENROLLMENT.length / STUDENTS.length) * 10) / 10} môn mỗi sinh viên`}
+          hint={
+            STUDENTS.length
+              ? `Trung bình ${Math.round((ENROLLMENT.length / STUDENTS.length) * 10) / 10} môn mỗi sinh viên`
+              : "Chưa có sinh viên"
+          }
           icon={<Users className="h-4 w-4" />}
         />
       </div>

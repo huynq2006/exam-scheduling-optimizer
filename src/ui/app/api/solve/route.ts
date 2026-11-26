@@ -46,8 +46,6 @@ function pythonCandidates(): Array<{ cmd: string; args: string[] }> {
   // Trình py launcher: tự chọn bản CPython mới nhất đã cài.
   push("py", ["-3"]);
 
-  push(path.join(PROJECT_ROOT, "src", "ui_streamlit", ".venv", "Scripts", "python.exe"));
-  push(path.join(PROJECT_ROOT, "src", "ui_streamlit", ".venv", "bin", "python"));
   push("python3");
   push("python");
   return out;
@@ -136,7 +134,7 @@ export async function POST(request: Request) {
     students: dataset.students.map((s) => ({ ma_sv: s.maSv })),
     enrollment: dataset.enrollment,
     params,
-    randomScores: true,
+    randomScores: false,
   });
 
   const errors: string[] = [];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -34,6 +34,10 @@ export default function SolvePage() {
   const [draft, setDraft] = useState(params);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(params);
+  }, [params]);
 
   const working = ROOMS.filter((r) => r.tinhTrang === "Working");
   const examDays = new Set(SLOTS.map((s) => s.ngayThi)).size;
