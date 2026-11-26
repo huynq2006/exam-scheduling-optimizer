@@ -15,6 +15,7 @@ import {
   Field,
   PageHeader,
   Table,
+  Tabs,
   inputClass,
   selectClass,
 } from "@/components/ui";
@@ -39,9 +40,9 @@ export default function InputsPage() {
   if (loading) {
     return (
       <>
-        <PageHeader eyebrow="Chuẩn bị" title="Dữ liệu dùng để xếp lịch" desc="Đang tải dữ liệu từ cơ sở dữ liệu…" />
+        <PageHeader eyebrow="Chuẩn bị" title="Dữ liệu dùng để xếp lịch" desc="Đang tải dữ liệu…" />
         <Card>
-          <p className="py-10 text-center text-[13px] text-ink-500">Đang đọc dữ liệu từ MySQL…</p>
+          <p className="py-10 text-center text-[13px] text-ink-500">Đang tải dữ liệu…</p>
         </Card>
       </>
     );
@@ -69,7 +70,7 @@ export default function InputsPage() {
       <PageHeader
         eyebrow="Chuẩn bị"
         title="Dữ liệu dùng để xếp lịch"
-        desc="Trước khi xếp lịch, kiểm tra bốn thứ ở đây: học phần nào phải thi, phòng nào dùng được, ngày nào thi, và sinh viên đăng ký môn gì. Sai ở bước này thì lịch ra cũng sai."
+        desc="Học phần, phòng máy, ngày thi và đăng ký môn của sinh viên."
       />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-4">
@@ -87,20 +88,12 @@ export default function InputsPage() {
         ))}
       </div>
 
-      <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg bg-ink-100 p-1">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "focus-ring whitespace-nowrap rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors",
-              tab === t.id ? "bg-white text-ink-900 shadow-card" : "text-ink-500 hover:text-ink-800",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="mb-4"
+        value={tab}
+        onChange={setTab}
+        items={TABS.map((t) => ({ id: t.id, label: t.label }))}
+      />
 
       {tab === "subjects" ? <SubjectsTab subjects={SUBJECTS} /> : null}
       {tab === "rooms" ? <RoomsTab rooms={ROOMS} /> : null}
@@ -124,7 +117,7 @@ function SubjectsTab({ subjects: SUBJECTS }: { subjects: Subject[] }) {
       <div className="p-5 pb-4">
         <CardHeader
           title={`${SUBJECTS.length} học phần phải thi`}
-          desc="Cột thời lượng cho biết mỗi học phần thi bao nhiêu phút. Học phần dài hơn ca thi thì không xếp vào ca đó được."
+          desc="Cột thời lượng là số phút thi của mỗi học phần."
         />
       </div>
       <Table>
@@ -179,7 +172,7 @@ function RoomsTab({ rooms: ROOMS }: { rooms: Room[] }) {
       <div className="flex flex-wrap items-end justify-between gap-3 p-5 pb-4">
         <CardHeader
           title={`${rows.length} phòng máy`}
-          desc="Sức chứa là số chỗ ngồi tối đa. Phòng đang bảo trì sẽ không được xếp ca nào."
+          desc="Sức chứa là số chỗ ngồi tối đa của phòng."
         />
         <label className="flex cursor-pointer items-center gap-2 text-[12.5px] text-ink-600">
           <input
@@ -249,7 +242,7 @@ function SlotsTab({ slots: SLOTS, subjects: SUBJECTS }: { slots: Slot[]; subject
       <div className="p-5 pb-4">
         <CardHeader
           title={`${SLOTS.length} khung giờ thi`}
-          desc="Mỗi ngày có 4 ca. Cột cuối cho biết ca đó dài bao lâu và xếp được bao nhiêu học phần."
+          desc="Mỗi ngày có 4 ca. Cột cuối là số học phần xếp được vào ca đó."
         />
       </div>
       <Table>
@@ -331,7 +324,7 @@ function EnrollmentTab({
         <div className="p-5 pb-4">
           <CardHeader
             title="Sĩ số từng học phần"
-            desc="Số sinh viên đăng ký mỗi học phần. Đây là con số quyết định cần bao nhiêu chỗ ngồi. Dòng đỏ là học phần có ít chỗ thi hơn sĩ số."
+            desc="Dòng đỏ là học phần có ít chỗ thi hơn sĩ số."
           />
         </div>
         <Table>
@@ -384,7 +377,7 @@ function EnrollmentTab({
         <div className="p-5 pb-4">
           <CardHeader
             title={`${STUDENTS.length} sinh viên · ${ENROLLMENT.length} lượt đăng ký`}
-            desc="Mỗi sinh viên đăng ký 3–5 học phần. Tra theo mã số sinh viên để xem một em thi những môn nào."
+            desc="Tra theo mã số sinh viên để xem một em thi những môn nào."
           />
           <Field label="Tra theo mã số sinh viên" className="mt-4 max-w-sm">
             <input
@@ -449,7 +442,7 @@ function CompatTab({ subjects: SUBJECTS, rooms: ROOMS }: { subjects: Subject[]; 
       <div className="p-5 pb-4">
         <CardHeader
           title="Phòng nào thi được môn nào"
-          desc="Dấu tích nghĩa là phòng đó cài đủ phần mềm mà học phần yêu cầu, nên xếp ca thi vào được. Dấu gạch là không xếp được."
+          desc="Dấu tích là phòng cài đủ phần mềm học phần yêu cầu."
         />
       </div>
       <div className="overflow-x-auto">
@@ -491,8 +484,8 @@ function CompatTab({ subjects: SUBJECTS, rooms: ROOMS }: { subjects: Subject[]; 
       <div className="flex items-start gap-2 border-t border-ink-100 px-5 py-3 text-[11.5px] leading-relaxed text-ink-400">
         <MonitorX className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          Phòng đang bảo trì không xuất hiện ở bảng này vì không xếp được ca nào. Học phần không yêu
-          cầu phần mềm riêng thì thi được ở mọi phòng đang dùng.
+          Phòng đang bảo trì không có trong bảng này. Học phần không yêu cầu phần mềm riêng thì thi
+          được ở mọi phòng đang dùng.
         </span>
       </div>
     </Card>

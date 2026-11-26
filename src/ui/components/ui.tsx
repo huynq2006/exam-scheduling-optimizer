@@ -286,3 +286,59 @@ export function Progress({ value, tone = "info" }: { value: number; tone?: Tone 
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Tabs                                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Một kiểu tab duy nhất cho cả ứng dụng.
+ *
+ * Trước đây mỗi trang tự vẽ một dải tab riêng, nhìn gần giống nhau nhưng
+ * lệch vài pixel và lệch cả cách hiển thị số đếm. Gom về đây để mọi màn
+ * hình có cùng một nhịp.
+ */
+export function Tabs<T extends string>({
+  items,
+  value,
+  onChange,
+  className,
+}: {
+  items: Array<{ id: T; label: string; count?: number }>;
+  value: T;
+  onChange: (id: T) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex gap-1 overflow-x-auto rounded-lg bg-ink-100 p-1",
+        className,
+      )}
+      role="tablist"
+    >
+      {items.map((t) => {
+        const active = value === t.id;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.id)}
+            className={cn(
+              "focus-ring whitespace-nowrap rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+              active ? "bg-white text-ink-900 shadow-card" : "text-ink-500 hover:text-ink-800",
+            )}
+          >
+            {t.label}
+            {typeof t.count === "number" ? (
+              <span className={cn("ml-1.5 tabular-nums", active ? "text-ink-400" : "text-ink-400")}>
+                {t.count}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

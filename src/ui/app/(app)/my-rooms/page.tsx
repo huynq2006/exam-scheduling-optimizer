@@ -86,7 +86,7 @@ export default function MyRoomsPage() {
       <>
         <PageHeader eyebrow="Tra cứu" title="Phòng máy của tôi" desc="Đang tải danh sách phòng…" />
         <Card>
-          <p className="py-10 text-center text-[13px] text-ink-500">Đang đọc dữ liệu từ MySQL…</p>
+          <p className="py-10 text-center text-[13px] text-ink-500">Đang tải…</p>
         </Card>
       </>
     );
@@ -133,7 +133,7 @@ export default function MyRoomsPage() {
       <PageHeader
         eyebrow="Tra cứu"
         title="Phòng máy của tôi"
-        desc="Bạn thi ở những phòng nào, phòng nằm ở đâu, máy cài sẵn phần mềm gì và bạn ngồi máy số mấy."
+        desc="Bạn thi ở phòng nào, ở đâu, máy cài sẵn phần mềm gì và bạn ngồi máy số mấy."
       />
 
       <div className="space-y-4">
@@ -206,7 +206,7 @@ export default function MyRoomsPage() {
       <Card className="mt-4">
         <CardHeader
           title="Trước khi vào thi"
-          desc="Có mặt trước giờ bắt đầu 15 phút. Ngồi đúng số máy đã ghi ở trên. Nếu máy hỏng, báo giám thị ngay, đừng tự đổi máy."
+          desc="Có mặt trước giờ bắt đầu 15 phút. Ngồi đúng số máy. Nếu máy hỏng, báo giám thị, đừng tự đổi máy."
         />
       </Card>
     </>

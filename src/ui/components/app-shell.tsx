@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronRight,
   Database,
+  FileUp,
   LayoutDashboard,
   LogOut,
   Menu,
   MonitorCog,
   Play,
+  Search,
   SlidersHorizontal,
   Table2,
 } from "lucide-react";
@@ -30,8 +32,10 @@ interface NavItem {
 const GIAOVU_NAV: NavItem[] = [
   { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard, group: "Bắt đầu" },
   { href: "/inputs", label: "Dữ liệu xếp lịch", icon: Database, group: "Chuẩn bị" },
+  { href: "/import", label: "Danh sách cấm thi", icon: FileUp, group: "Chuẩn bị" },
   { href: "/solve", label: "Xếp lịch thi", icon: Play, group: "Xếp lịch" },
   { href: "/solution", label: "Lịch thi đã xếp", icon: Table2, group: "Xếp lịch" },
+  { href: "/query", label: "Truy vấn sinh viên", icon: Search, group: "Tra cứu" },
   { href: "/params", label: "Cấu hình ưu tiên", icon: SlidersHorizontal, group: "Cài đặt" },
 ];
 
@@ -56,10 +60,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const scrollRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Đổi trang thì đưa vùng nội dung về đầu. Cần thiết vì trang cuộn trong
+  // <main>, không phải trong cửa sổ, nên trình duyệt không tự làm việc này.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
+
+  // Menu điện thoại đang mở thì khoá cuộn nền, tránh trang trôi phía sau.
+  useEffect(() => {
+    if (!open) return;
+    const root = document.documentElement;
+    root.setAttribute("data-scroll-lock", "");
+    return () => root.removeAttribute("data-scroll-lock");
+  }, [open]);
 
   const role: Role | null = user?.role ?? null;
   const items = role ? NAV_BY_ROLE[role] : [];
@@ -99,7 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const nav = (
-    <div className="flex h-full max-h-screen flex-col">
+    <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2.5 px-5 py-5">
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent-600 text-[13px] font-bold text-white">LT</span>
         <div className="leading-tight">
@@ -182,9 +201,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     )?.label ?? items[0]?.label ?? "";
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr]">
-      <aside className="hidden border-r border-ink-200 bg-ink-100/60 lg:block">
-        <div className="sticky top-0 h-screen overflow-hidden">{nav}</div>
+    <div className="flex h-screen h-dvh overflow-hidden">
+      <aside className="hidden w-[248px] shrink-0 border-r border-ink-200 bg-ink-100/60 lg:block">
+        {nav}
       </aside>
 
       {open ? (
@@ -194,8 +213,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-200 bg-ink-50/85 px-4 backdrop-blur lg:px-8">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="z-30 flex h-14 shrink-0 items-center gap-3 border-b border-ink-200 bg-ink-50/85 px-4 backdrop-blur lg:px-8">
           <button
             onClick={() => setOpen(true)}
             className="focus-ring rounded-md p-1.5 text-ink-500 hover:bg-ink-100 lg:hidden"
@@ -223,15 +242,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 py-6 lg:px-8 lg:py-8">
-          <div className="animate-rise">{children}</div>
-        </main>
+        <main ref={scrollRef} data-scroll-region className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1180px] px-4 py-6 lg:px-8 lg:py-8">
+            <div className="animate-rise">{children}</div>
+          </div>
 
-        <footer className="border-t border-ink-200 px-4 py-4 text-[11.5px] text-ink-400 lg:px-8">
-          {isStudent
-            ? "Lịch thi hiển thị ở đây là phương án đã được Phòng Đào tạo công bố."
-            : "Kết quả xếp lịch do hệ thống tính trực tiếp từ dữ liệu hiện tại, không phải số mô phỏng."}
-        </footer>
+          <footer className="border-t border-ink-200 px-4 py-4 text-[11.5px] text-ink-400 lg:px-8">
+            {isStudent
+              ? "Lịch thi hiển thị ở đây là phương án đã được Phòng Đào tạo công bố."
+              : "Kết quả tính trực tiếp từ dữ liệu hiện tại."}
+          </footer>
+        </main>
       </div>
     </div>
   );

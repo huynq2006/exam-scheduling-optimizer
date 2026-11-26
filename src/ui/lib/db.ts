@@ -142,3 +142,16 @@ export async function query<T = Record<string, unknown>>(
   const [rows] = await getPool(role).query(sql, params);
   return rows as T[];
 }
+
+/**
+ * Ghi dữ liệu. Luôn đi vào MASTER: slave là bản sao chỉ đọc, ghi vào đó thì
+ * hoặc lỗi, hoặc mất khi đồng bộ lại.
+ */
+export async function execute(
+  sql: string,
+  params: unknown[] = [],
+): Promise<{ affectedRows: number; insertId: number }> {
+  const [result] = await getPool("master").query(sql, params);
+  const r = result as { affectedRows?: number; insertId?: number };
+  return { affectedRows: r.affectedRows ?? 0, insertId: r.insertId ?? 0 };
+}

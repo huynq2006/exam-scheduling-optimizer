@@ -53,7 +53,7 @@ export default function ParamsPage() {
       <PageHeader
         eyebrow="Cài đặt"
         title="Cấu hình ưu tiên xếp lịch"
-        desc="Khi có nhiều cách xếp cùng hợp lệ, các mức ưu tiên dưới đây quyết định hệ thống chọn cách nào. Đổi chúng là đổi lịch ra, không phải đổi độ chính xác."
+        desc="Mức ưu tiên quyết định chọn cách xếp nào khi có nhiều cách cùng hợp lệ."
       />
 
       <div className="mb-4">
@@ -96,7 +96,7 @@ export default function ParamsPage() {
         <Card>
           <CardHeader
             title="Mức ưu tiên"
-            desc="Số càng lớn thì hệ thống càng tránh điều đó. Để 0 nghĩa là không quan tâm."
+            desc="Số càng lớn thì càng tránh. Để 0 là không quan tâm."
           />
           <div className="mt-4 space-y-4">
             <Field
@@ -156,7 +156,7 @@ export default function ParamsPage() {
         <Card>
           <CardHeader
             title="Thời gian và hiệu năng"
-            desc="Không ảnh hưởng chất lượng lịch, chỉ ảnh hưởng thời gian chờ."
+            desc="Chỉ ảnh hưởng thời gian chờ, không ảnh hưởng chất lượng lịch."
           />
           <div className="mt-4 space-y-4">
             <Field label="Thời gian chờ tối đa (giây)" hint="Càng lâu càng có cơ hội tìm lịch gọn hơn.">

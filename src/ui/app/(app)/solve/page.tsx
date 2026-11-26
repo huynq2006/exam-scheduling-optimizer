@@ -56,9 +56,9 @@ export default function SolvePage() {
   if (loading) {
     return (
       <>
-        <PageHeader eyebrow="Xếp lịch" title="Xếp lịch thi cho kỳ này" desc="Đang tải dữ liệu từ cơ sở dữ liệu…" />
+        <PageHeader eyebrow="Xếp lịch" title="Xếp lịch thi cho kỳ này" desc="Đang tải dữ liệu…" />
         <Card>
-          <p className="py-10 text-center text-[13px] text-ink-500">Đang đọc dữ liệu từ MySQL…</p>
+          <p className="py-10 text-center text-[13px] text-ink-500">Đang tải dữ liệu…</p>
         </Card>
       </>
     );
@@ -86,20 +86,20 @@ export default function SolvePage() {
       <PageHeader
         eyebrow="Xếp lịch"
         title="Xếp lịch thi cho kỳ này"
-        desc="Hệ thống sẽ tự sắp toàn bộ học phần vào các ngày thi và phòng máy sao cho không trùng lịch của sinh viên và không dùng sai phòng."
+        desc="Sắp học phần vào các ngày thi và phòng máy."
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
         <Card>
           <CardHeader
             title="Chọn cách xếp"
-            desc="Phần lớn trường hợp chỉ cần bấm nút xếp lịch. Các ô bên dưới dành cho khi cần chờ lâu hơn hoặc muốn kết quả khác đi."
+            desc="Thường chỉ cần bấm nút xếp lịch."
           />
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <Field
               label="Thời gian chờ tối đa"
-              hint="Đơn vị: giây. Càng lâu, hệ thống càng có cơ hội tìm được lịch gọn hơn."
+              hint="Đơn vị: giây. Càng lâu càng có cơ hội tìm lịch gọn hơn."
             >
               <input
                 type="number"
@@ -130,7 +130,6 @@ export default function SolvePage() {
               Bốn mức ưu tiên dưới đây quyết định hệ thống thích phương án nào hơn khi có nhiều cách
               xếp cùng hợp lệ. Số càng lớn thì càng tránh.
             </p>
-
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Field label="Hạn chế mở thêm phòng" hint="Cao thì dồn ca vào ít phòng, tiết kiệm điện và nhân sự.">
                 <input
@@ -167,7 +166,7 @@ export default function SolvePage() {
               </Field>
               <Field
                 label="Mức phạt khi phải bỏ học phần"
-                hint="Để rất cao để hệ thống chỉ bỏ khi thật sự không còn cách nào."
+                hint="Để rất cao để chỉ bỏ khi không còn cách nào."
               >
                 <input
                   type="number"
@@ -223,7 +222,6 @@ export default function SolvePage() {
         <Card>
           <CardHeader
             title="Dữ liệu sẽ đưa vào xếp lịch"
-            desc="Đây là những gì hệ thống đang có. Sai ở đây thì lịch ra cũng sai."
           />
           <ul className="mt-4 space-y-2.5">
             {[
@@ -261,8 +259,7 @@ export default function SolvePage() {
             ))}
           </ul>
           <p className="mt-3 text-[11.5px] leading-relaxed text-ink-400">
-            Nếu dữ liệu chưa đúng, vào mục &ldquo;Dữ liệu xếp lịch&rdquo; để xem chi tiết từng học phần
-            và từng phòng.
+            Nếu dữ liệu chưa đúng, vào mục &ldquo;Dữ liệu xếp lịch&rdquo; để xem chi tiết.
           </p>
         </Card>
       </div>

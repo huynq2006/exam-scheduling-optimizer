@@ -18,13 +18,12 @@ export const STATUS_LABEL: Record<
 > = {
   OPTIMAL: {
     text: "Đã xếp xong",
-    plain: "Hệ thống đã tìm ra phương án tốt nhất có thể với dữ liệu hiện tại.",
+    plain: "Phương án tốt nhất tìm được với dữ liệu hiện tại.",
     tone: "success",
   },
   FEASIBLE: {
     text: "Đã xếp xong",
-    plain:
-      "Đã có phương án dùng được. Hệ thống dừng vì hết thời gian chờ, không phải vì lỗi.",
+    plain: "Dừng vì hết thời gian chờ, không phải lỗi.",
     tone: "info",
   },
   INFEASIBLE: {
@@ -38,7 +37,7 @@ export function statusOf(status: string) {
   return (
     STATUS_LABEL[status] ?? {
       text: "Chưa rõ",
-      plain: "Hệ thống không trả về trạng thái cho lần chạy này.",
+      plain: "Không có trạng thái cho lần chạy này.",
       tone: "info" as Tone,
     }
   );
@@ -113,9 +112,9 @@ export interface ResultSummaryInput {
  */
 export function summarizeResult(r: ResultSummaryInput): string {
   if (r.unscheduledSubjects > 0) {
-    return `Đã xếp ${r.scheduledSubjects}/${r.totalSubjects} học phần vào ${r.days} ngày thi, dùng ${r.roomsOpened} phòng. Còn ${r.unscheduledSubjects} học phần chưa xếp được — xem mục "Học phần chưa xếp được" bên dưới.`;
+    return `Đã xếp ${r.scheduledSubjects}/${r.totalSubjects} học phần vào ${r.days} ngày thi, dùng ${r.roomsOpened} phòng. Còn ${r.unscheduledSubjects} học phần chưa xếp được.`;
   }
-  return `Đã xếp đủ ${r.totalSubjects} học phần vào ${r.days} ngày thi, dùng ${r.roomsOpened} phòng, tổng ${r.sessions} ca thi. Không học phần nào bị bỏ.`;
+  return `Đã xếp đủ ${r.totalSubjects} học phần vào ${r.days} ngày thi, dùng ${r.roomsOpened} phòng, tổng ${r.sessions} ca thi.`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -133,10 +132,45 @@ export function unscheduledHint(input: {
   coPhongNaoDuPhanMem: boolean;
 }): string {
   if (!input.coPhongNaoDuPhanMem) {
-    return "Không phòng nào đang dùng được cài đủ phần mềm mà học phần này yêu cầu. Cần cài thêm phần mềm cho một phòng, hoặc đưa phòng đang bảo trì vào dùng.";
+    return "Không phòng nào đang dùng được cài đủ phần mềm học phần này yêu cầu. Cần cài thêm phần mềm, hoặc đưa phòng đang bảo trì vào dùng.";
   }
   if (input.tongChoDuPhanMem < input.siSo) {
-    return `Chỉ có ${input.soPhongDuPhanMem} phòng đủ phần mềm với tổng ${input.tongChoDuPhanMem} chỗ, trong khi sĩ số là ${input.siSo}. Cần thêm phòng đủ phần mềm hoặc chia học phần thành nhiều đợt thi.`;
+    return `Có ${input.soPhongDuPhanMem} phòng đủ phần mềm với tổng ${input.tongChoDuPhanMem} chỗ, sĩ số là ${input.siSo}. Cần thêm phòng hoặc chia thành nhiều đợt thi.`;
   }
   return "Đủ phòng và đủ chỗ, nhưng các học phần khác đã chiếm hết ca phù hợp. Thử tăng thời gian chờ, hoặc thêm ca thi trong ngày.";
 }
+
+/* -------------------------------------------------------------------------- */
+/* Trạng thái dự thi                                                          */
+/* -------------------------------------------------------------------------- */
+
+export const EXAM_STATUS_LABEL: Record<
+  string,
+  { text: string; short: string; plain: string; tone: Tone }
+> = {
+  CHUA_NOP_HOC_PHI: {
+    text: "Chưa nộp học phí",
+    short: "Chưa nộp HP",
+    plain: "Nộp học phí xong thì được dự thi.",
+    tone: "warning",
+  },
+  CAM_THI: {
+    text: "Cấm thi",
+    short: "Cấm thi",
+    plain: "Không được dự thi (kỷ luật, đánh trượt môn).",
+    tone: "danger",
+  },
+};
+
+export function examStatusOf(trangThai: string | null | undefined) {
+  if (!trangThai) return null;
+  return EXAM_STATUS_LABEL[trangThai] ?? null;
+}
+
+/** Lớp nền của một dòng trong bảng: vàng cho tạm hoãn, đỏ cho cấm hẳn. */
+export function rowToneClass(trangThai: string | null | undefined): string {
+  if (trangThai === "CAM_THI") return "bg-rose-50/80 hover:bg-rose-50";
+  if (trangThai === "CHUA_NOP_HOC_PHI") return "bg-amber-50/70 hover:bg-amber-50";
+  return "";
+}
+
