@@ -2,8 +2,41 @@ from datetime import date, time
 
 import pytest
 
-from scripts.generate_data import assign_proctors, generated_proctor
+from scripts.generate_data import (
+    assign_proctors,
+    generated_proctor,
+    generated_students,
+    insert_students,
+)
 from src.algo.exam_scheduler import schedule_cp_sat
+
+
+def test_generated_students_insert_matches_schema_without_exam_status():
+    students = generated_students(1)
+    student = students[0]
+    required_fields = {
+        "ma_sv", "ho_ten", "ngay_sinh", "gioi_tinh", "email",
+        "so_dien_thoai", "lop", "khoa", "khoa_hoc",
+    }
+
+    assert required_fields <= student.keys()
+    assert "trang_thai" not in student
+
+    class Cursor:
+        def executemany(self, sql, values):
+            self.sql = sql
+            self.values = values
+
+    class Connection:
+        def cursor(self):
+            self.recording_cursor = Cursor()
+            return self.recording_cursor
+
+    connection = Connection()
+    insert_students(connection, students)
+
+    assert "trang_thai" not in connection.recording_cursor.sql
+    assert len(connection.recording_cursor.values[0]) == len(required_fields)
 
 
 def _slots():

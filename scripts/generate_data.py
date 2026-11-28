@@ -161,7 +161,6 @@ def generated_students(n):
             "lop": class_name,
             "khoa": department,
             "khoa_hoc": year,
-            "trang_thai": "Hop le"
         }
         students.append(data)
 
@@ -503,10 +502,10 @@ def insert_software(connection, data_list):
 def insert_students(connection, data_list):
     cursor = connection.cursor()
     sql = """INSERT INTO sinh_vien
-             (ma_sv, ho_ten, ngay_sinh, gioi_tinh, email, so_dien_thoai, lop, khoa, khoa_hoc, trang_thai)
-             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+             (ma_sv, ho_ten, ngay_sinh, gioi_tinh, email, so_dien_thoai, lop, khoa, khoa_hoc)
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
     values = [(d['ma_sv'], d['ho_ten'], d['ngay_sinh'], unicodedata.normalize('NFC', d['gioi_tinh']), d['email'],
-               d['so_dien_thoai'], d['lop'], d['khoa'], d['khoa_hoc'], d['trang_thai']) for d in data_list]
+               d['so_dien_thoai'], d['lop'], d['khoa'], d['khoa_hoc']) for d in data_list]
     cursor.executemany(sql, values)
 
 
@@ -672,7 +671,7 @@ def insert_registrations(connection, data_list):
 
 # Child tables first, so DELETE never violates a foreign key.
 CLEAR_ORDER = ["phan_cong_giam_thi", "dang_ky_mon", "dang_ky_thi", "lich_thi", "phuong_an",
-               "mon_thi_phan_mem", "phong_may_phan_mem", "khung_gio", "mon_thi",
+               "trang_thai_thi", "mon_thi_phan_mem", "phong_may_phan_mem", "khung_gio", "mon_thi",
                "phong_may", "phan_mem", "giam_thi", "sinh_vien"]
 
 

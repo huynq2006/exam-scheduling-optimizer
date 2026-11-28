@@ -5,6 +5,7 @@ Usage:
 
 This supplies data-volume arguments so the dataset can be regenerated from a
 script or CI; the backend selects its scheduling strategy automatically.
+Apply database/03.trang_thai_thi.sql after database/01.schema.sql before running it.
 """
 import os
 import sys

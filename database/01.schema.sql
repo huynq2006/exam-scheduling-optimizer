@@ -21,8 +21,8 @@ CREATE TABLE sinh_vien (
     PRIMARY KEY (ma_sv),
     UNIQUE KEY uq_sv_email (email),
     KEY idx_sv_lop (lop),
-    CONSTRAINT chk_sv_khoa_hoc CHECK (khoa_hoc BETWEEN 2020 AND 2026),
-    trang_thai ENUM('Hop le', 'Chua nop hoc phi', 'Cam thi') NOT NULL
+    CONSTRAINT chk_sv_khoa_hoc CHECK (khoa_hoc BETWEEN 2020 AND 2026)
+    -- trang_thai ENUM('Hop le', 'Chua nop hoc phi', 'Cam thi') NOT NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE giam_thi (
