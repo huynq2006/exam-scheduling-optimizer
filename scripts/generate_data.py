@@ -160,7 +160,7 @@ def generated_students(n):
             "so_dien_thoai": random.choice(PHONE_PREFIXES) + fake.numerify("#######"),
             "lop": class_name,
             "khoa": department,
-            "khoa_hoc": year
+            "khoa_hoc": year,
         }
         students.append(data)
 
@@ -195,6 +195,35 @@ def generated_rooms(n):
         rooms.append(data)
 
     return rooms
+
+def generated_proctor(n):
+    proctors = []
+
+    for i in range(n):
+        gender = fake.random_element(elements=('Nam', 'Nu'))
+        last_name = fake.vn_last_name()
+        middle_name = fake.vn_middle_name(gender)
+        first_name = fake.vn_first_name(gender)
+        full_name = f"{last_name} {middle_name} {first_name}"  # Vietnamese order
+
+        year = random.choice(ADMISSION_YEARS)
+        department, _ = random.choice(list(DEPARTMENTS.items()))
+        ma_gt = f"GT{year}{i + 1:04d}"
+        dob = fake.date_between(start_date=date(year - 55, 1, 1), end_date=date(year - 25, 12, 31))
+        email = (normalize_name(first_name) + normalize_name(last_name)[0]
+                 + normalize_name(middle_name)[0] + ma_gt[2:] + "@vnu.edu.vn")
+
+        proctors.append({
+            "ma_gt": ma_gt,
+            "ho_ten": full_name,
+            "ngay_sinh": dob,
+            "gioi_tinh": gender,
+            "email": email,
+            "so_dien_thoai": random.choice(PHONE_PREFIXES) + fake.numerify("#######"),
+            "khoa": department,
+        })
+
+    return proctors
 
 
 def generated_room_software(rooms):
@@ -314,11 +343,14 @@ def generated_exam_schedule(students, subjects, rooms, room_software, subject_so
     for x in registrations:
         busy_students.setdefault(x["ma_sv"], set()).add(slot_of[x["ma_lich"]])
     unscheduled = []
+    # (student, subject) pairs already seated (e.g. by CP-SAT parts): never seat them twice
+    mon_of = {x["ma_lich"]: x["ma_mon"] for x in sessions}
+    seated = {(x["ma_sv"], mon_of[x["ma_lich"]]) for x in registrations}
 
     for code in subject_codes:
         if only_codes is not None and code not in only_codes:
             continue
-        pending = enrolled[code][:]
+        pending = [sv for sv in enrolled[code] if (sv, code) not in seated]
         random.shuffle(pending)
 
         while pending:
@@ -359,11 +391,8 @@ def generated_exam_schedule(students, subjects, rooms, room_software, subject_so
 
 
 # ======================================================================
-# Scheduling front-end: CP-SAT (src/algo/exam_scheduler.py) with the greedy scheduler as fallback
+# Scheduling front-end: automatic CP-SAT with a greedy fallback
 # ======================================================================
-ALGORITHMS = ("auto", "cpsat", "greedy")
-
-
 def _load_cp_sat():
     """Import schedule_cp_sat lazily so the greedy path works without ortools installed."""
     try:
@@ -414,29 +443,21 @@ def rebalance_sessions(sessions, registrations, rooms):
 
 
 def schedule_exams(students, subjects, rooms, room_software, subject_software, slots,
-                   algorithm="auto", time_limit=30, workers=None, seed=None):
+                   time_limit=30, workers=None, seed=None, enrolled=None):
     """
-    Returns (sessions, registrations, unscheduled, info).
-      greedy : the original greedy scheduler.
-      cpsat  : exam_scheduler.schedule_cp_sat (always returns a valid schedule, but may skip whole
-               subjects that do not fit in one slot or that it could not place within time_limit).
-      auto   : cpsat, then the greedy scheduler places the skipped subjects around the CP-SAT result
-               (a subject may then be split over several slots). Falls back to greedy if ortools is missing.
+    Returns (sessions, registrations, unscheduled, info), selecting the scheduling
+    implementation automatically and using the greedy scheduler as a fallback.
     """
-    if algorithm not in ALGORITHMS:
-        raise ValueError(f"algorithm must be one of {ALGORITHMS}")
-    enrolled = build_enrollment(students, [s["ma_mon"] for s in subjects])
+    if enrolled is None:          # normally supplied by generate_all so it can be saved to dang_ky_mon
+        enrolled = build_enrollment(students, [s["ma_mon"] for s in subjects])
     args = (students, subjects, rooms, room_software, subject_software, slots)
     info = {"algorithm": "greedy"}
 
     cp_sat = None
-    if algorithm != "greedy":
-        try:
-            cp_sat = _load_cp_sat()
-        except ImportError as exc:
-            if algorithm == "cpsat":
-                raise
-            info["warning"] = f"Không dùng được CP-SAT, đã chuyển sang thuật toán tham lam. {exc}"
+    try:
+        cp_sat = _load_cp_sat()
+    except ImportError as exc:
+        info["warning"] = f"Không dùng được CP-SAT, đã chuyển sang thuật toán tham lam. {exc}"
 
     if cp_sat is None:
         sessions, registrations, unscheduled = generated_exam_schedule(*args, enrolled=enrolled)
@@ -450,7 +471,7 @@ def schedule_exams(students, subjects, rooms, room_software, subject_software, s
     info.update(algorithm="cpsat", solver_status=stats["status"], solve_time=round(stats["solve_time"], 1),
                 rooms_opened=stats.get("rooms_opened"), skipped_subjects=stats.get("unscheduled_subjects", 0),
                 workers=workers)
-    if unscheduled and algorithm == "auto":
+    if unscheduled:
         skipped = len(unscheduled)
         sessions, registrations, unscheduled = generated_exam_schedule(
             *args, enrolled=enrolled, existing=(sessions, registrations),
@@ -480,11 +501,91 @@ def insert_software(connection, data_list):
 
 def insert_students(connection, data_list):
     cursor = connection.cursor()
-    sql = """INSERT INTO sinh_vien (ma_sv, ho_ten, ngay_sinh, gioi_tinh, email, so_dien_thoai, lop, khoa, khoa_hoc)
+    sql = """INSERT INTO sinh_vien
+             (ma_sv, ho_ten, ngay_sinh, gioi_tinh, email, so_dien_thoai, lop, khoa, khoa_hoc)
              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
     values = [(d['ma_sv'], d['ho_ten'], d['ngay_sinh'], unicodedata.normalize('NFC', d['gioi_tinh']), d['email'],
                d['so_dien_thoai'], d['lop'], d['khoa'], d['khoa_hoc']) for d in data_list]
     cursor.executemany(sql, values)
+
+
+def insert_proctors(connection, data_list):
+    cursor = connection.cursor()
+    sql = """INSERT INTO giam_thi (ma_gt, ho_ten, ngay_sinh, gioi_tinh, email, so_dien_thoai, khoa)
+             VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+    values = [(d["ma_gt"], d["ho_ten"], d["ngay_sinh"], d["gioi_tinh"], d["email"],
+               d["so_dien_thoai"], d["khoa"]) for d in data_list]
+    cursor.executemany(sql, values)
+
+
+def assign_proctors(sessions, slots, proctors, max_per_session=2):
+    """Assign 1-2 distinct proctors per session, without shift conflicts."""
+    if not sessions:
+        return []
+    if not proctors:
+        raise ValueError("Không có giám thị để phân công.")
+    if not 1 <= max_per_session <= 2:
+        raise ValueError("Mỗi buổi thi phải được phân công tối đa 1 hoặc 2 giám thị.")
+
+    from ortools.sat.python import cp_model
+
+    slot_by_id = {slot["ma_khung"]: slot for slot in slots}
+    unknown_slots = sorted({s["ma_khung"] for s in sessions} - slot_by_id.keys())
+    if unknown_slots:
+        raise ValueError(f"Ca thi không tồn tại khi phân công giám thị: {unknown_slots}")
+
+    model = cp_model.CpModel()
+    assigned = {
+        (p, i): model.NewBoolVar(f"proctor_{p}_session_{i}")
+        for p in range(len(proctors)) for i in range(len(sessions))
+    }
+
+    sessions_by_slot = defaultdict(list)
+    sessions_by_day = defaultdict(list)
+    for i, session in enumerate(sessions):
+        slot = slot_by_id[session["ma_khung"]]
+        sessions_by_slot[session["ma_khung"]].append(i)
+        sessions_by_day[(slot["ngay_thi"], slot["ca_thi"])].append(i)
+        assignments = [assigned[p, i] for p in range(len(proctors))]
+        model.Add(sum(assignments) >= 1)
+        model.Add(sum(assignments) <= max_per_session)
+
+    days = {slot["ngay_thi"] for slot in slot_by_id.values()}
+    for p in range(len(proctors)):
+        for ma_khung, session_indexes in sessions_by_slot.items():
+            model.Add(sum(assigned[p, i] for i in session_indexes) <= 1)
+        for day_index, day in enumerate(sorted(days)):
+            active = model.NewBoolVar(f"proctor_{p}_day_{day_index}")
+            day_indexes = [
+                i for (slot_day, _), indexes in sessions_by_day.items()
+                if slot_day == day for i in indexes
+            ]
+            day_assignments = [assigned[p, i] for i in day_indexes]
+            for var in day_assignments:
+                model.Add(var <= active)
+            model.Add(sum(day_assignments) >= 2 * active)
+
+    model.Minimize(sum(assigned.values()))
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = 10
+    solver.parameters.num_search_workers = 8
+    status = solver.Solve(model)
+    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        raise ValueError(
+            "Không thể phân công giám thị: mỗi giám thị phải trông ít nhất 2 ca/ngày, "
+            "không trùng ca và mỗi phòng cần 1-2 giám thị."
+        )
+
+    assignments = []
+    for i, session in enumerate(sessions):
+        for p, proctor in enumerate(proctors):
+            if solver.Value(assigned[p, i]):
+                assignments.append({
+                    "ma_gt": proctor["ma_gt"],
+                    "ma_lich": session["ma_lich"],
+                    "ma_khung": session["ma_khung"],
+                })
+    return assignments
 
 
 def insert_rooms(connection, data_list):
@@ -529,6 +630,21 @@ def insert_time_slots(connection, data_list):
     cursor.executemany(sql, values)
 
 
+def insert_enrollments(connection, enrolled):
+    """dang_ky_mon: which student sits which subject (the INPUT of the scheduler)."""
+    cursor = connection.cursor()
+    values = [(ma_sv, ma_mon) for ma_mon, svs in enrolled.items() for ma_sv in svs]
+    cursor.executemany("INSERT INTO dang_ky_mon (ma_sv, ma_mon) VALUES (%s, %s)", values)
+
+
+def insert_proctor_assignments(connection, data_list, ma_pa):
+    cursor = connection.cursor()
+    sql = """INSERT INTO phan_cong_giam_thi (ma_pa, ma_gt, ma_lich, ma_khung)
+             VALUES (%s, %s, %s, %s)"""
+    values = [(ma_pa, d["ma_gt"], d["ma_lich"], d["ma_khung"]) for d in data_list]
+    cursor.executemany(sql, values)
+
+
 def insert_plan(connection, name, note=None):
     """Create a draft plan (phuong_an) and return its id."""
     cursor = connection.cursor()
@@ -554,25 +670,24 @@ def insert_registrations(connection, data_list):
 
 
 # Child tables first, so DELETE never violates a foreign key.
-CLEAR_ORDER = ["dang_ky_thi", "lich_thi", "phuong_an", "mon_thi_phan_mem", "phong_may_phan_mem",
-               "khung_gio", "mon_thi", "phong_may", "phan_mem", "sinh_vien"]
+CLEAR_ORDER = ["phan_cong_giam_thi", "dang_ky_mon", "dang_ky_thi", "lich_thi", "phuong_an",
+               "trang_thai_thi", "mon_thi_phan_mem", "phong_may_phan_mem", "khung_gio", "mon_thi",
+               "phong_may", "phan_mem", "giam_thi", "sinh_vien"]
 
 
 def generate_all(connection, n_students, n_subjects, n_rooms, n_days, seed=None, log=print,
-                 publish=True, algorithm="auto", time_limit=30, workers=None):
+                 publish=True, time_limit=30, workers=None):
     """
     Replace the whole dataset inside ONE transaction: if anything fails, the previous data
     is restored (rollback). Returns a summary dict (used by the Streamlit page).
 
     The data is generated and the exam schedule is solved IN MEMORY first; the transaction that
     wipes and rewrites the tables only starts afterwards, so a long CP-SAT run never holds row locks.
-    algorithm: 'auto' (CP-SAT + greedy repair), 'cpsat', or 'greedy'; time_limit: solver seconds.
+    The backend chooses CP-SAT with greedy repair automatically; time_limit: solver seconds.
     workers: CP-SAT threads (None = up to 8). With a seed, workers=1 gives reproducible results.
     """
     if min(n_students, n_subjects, n_rooms, n_days) < 1:
         raise ValueError("All quantities must be >= 1")
-    if algorithm not in ALGORITHMS:
-        raise ValueError(f"algorithm must be one of {ALGORITHMS}")
     if seed is not None:
         random.seed(seed)
         Faker.seed(seed)
@@ -590,13 +705,17 @@ def generate_all(connection, n_students, n_subjects, n_rooms, n_days, seed=None,
         raw_software = generated_software()
         raw_students = generated_students(n_students)
         raw_rooms = generated_rooms(n_rooms)
+        raw_proctors = generated_proctor(max(2, n_rooms * 2))
         raw_subjects = generated_subjects(n_subjects)
         raw_slots = generated_time_slots(n_days)
         raw_room_sw = generated_room_software(raw_rooms)
         raw_subject_sw = generated_subject_software(raw_subjects)
+        raw_enrollment = build_enrollment(raw_students, [s["ma_mon"] for s in raw_subjects])
         raw_sessions, raw_registrations, unscheduled, info = schedule_exams(
             raw_students, raw_subjects, raw_rooms, raw_room_sw, raw_subject_sw, raw_slots,
-            algorithm=algorithm, time_limit=time_limit, workers=workers, seed=seed)
+            time_limit=time_limit, workers=workers, seed=seed,
+            enrolled=raw_enrollment)
+        raw_proctor_assignments = assign_proctors(raw_sessions, raw_slots, raw_proctors)
         log(f"Phase 0 done: data generated and scheduled ({info['algorithm']})")
 
         # Phase 1: wipe + write. Plans that are not in 'NHAP' are locked by triggers
@@ -606,11 +725,13 @@ def generate_all(connection, n_students, n_subjects, n_rooms, n_days, seed=None,
             cursor.execute(f"DELETE FROM {table}")
         insert_software(connection, raw_software)
         insert_students(connection, raw_students)
+        insert_proctors(connection, raw_proctors)
         insert_rooms(connection, raw_rooms)
         insert_subjects(connection, raw_subjects)
         insert_time_slots(connection, raw_slots)
         insert_room_software(connection, raw_room_sw)
         insert_subject_software(connection, raw_subject_sw)
+        insert_enrollments(connection, raw_enrollment)
         log("Phase 1 done: master data")
 
         label = {"greedy": "thuật toán tham lam", "cpsat": "CP-SAT",
@@ -620,6 +741,7 @@ def generate_all(connection, n_students, n_subjects, n_rooms, n_days, seed=None,
             note += f"; solver={info['solver_status']} {info['solve_time']}s"
         ma_pa = insert_plan(connection, f"Phương án mẫu ({label})", note)
         insert_sessions(connection, raw_sessions, ma_pa)
+        insert_proctor_assignments(connection, raw_proctor_assignments, ma_pa)
         insert_registrations(connection, raw_registrations)
         if publish:   # the sample plan becomes the official schedule students/proctors can see
             cursor.execute("UPDATE phuong_an SET trang_thai = 'DA_CONG_BO' WHERE ma_pa = %s", (ma_pa,))
@@ -635,6 +757,7 @@ def generate_all(connection, n_students, n_subjects, n_rooms, n_days, seed=None,
     return {
         "ma_pa": ma_pa, "published": bool(publish), "solver": info,
         "students": len(raw_students), "subjects": len(raw_subjects),
+        "proctors": len(raw_proctors), "proctor_assignments": len(raw_proctor_assignments),
         "rooms": len(raw_rooms),
         "rooms_maintenance": sum(r["tinh_trang"] != "Working" for r in raw_rooms),
         "slots": len(raw_slots), "sessions": len(raw_sessions),
@@ -653,14 +776,12 @@ def main():
     amt_of_rooms = int(input("Number of computer rooms: "))
     cnt_exam_days = int(input("Number of exam days: "))
 
-    algo = input(f"Scheduling algorithm {list(ALGORITHMS)} (default auto): ").strip() or "auto"
     tl = input("Solver time limit in seconds (default 30): ").strip()
 
     connection = get_master_connection()
     try:
         summary = generate_all(connection, amt_of_students, amt_of_subjects,
-                               amt_of_rooms, cnt_exam_days, algorithm=algo,
-                               time_limit=int(tl) if tl else 30)
+                               amt_of_rooms, cnt_exam_days, time_limit=int(tl) if tl else 30)
         print(f"Algorithm used: {summary['solver']}")
         print(f"Exam sessions: {summary['sessions']}, registrations: {summary['registrations']}")
         if summary["unscheduled"]:

@@ -1,8 +1,9 @@
 -- =====================================================================
 -- 02_views_triggers.sql  (chạy SAU 01_schema.sql, chỉ trên MASTER)
---   1) v_vi_pham          : "Kiểm tra hợp lệ và xung đột" (use case được <<include>>)
---   2) v_lich_thi_cong_bo : "Sinh viên chỉ xem lịch đã công bố"
---   3) Trigger khóa       : chỉ phương án ở trạng thái NHAP mới được sửa
+--   1) v_vi_pham                    : "Kiểm tra hợp lệ và xung đột" (use case được <<include>>)
+--   2) v_lich_thi_cong_bo           : "Sinh viên chỉ xem lịch đã công bố"
+--   3) v_phan_cong_giam_thi_cong_bo : phân công giám thị kèm ngày/ca thi đã công bố
+--   4) Trigger khóa                 : chỉ phương án ở trạng thái NHAP mới được sửa
 --
 -- Lưu ý replication: dùng binlog_format=ROW (mặc định MySQL 8) để slave chỉ áp dụng
 -- các dòng đã đổi, không chạy lại trigger. Nếu binlog đang bật và tài khoản không có SUPER,
@@ -49,6 +50,16 @@ CREATE OR REPLACE VIEW v_lich_thi_cong_bo AS
 SELECT lt.ma_lich, lt.ma_pa, lt.ma_mon, lt.ma_phong, lt.ma_khung
   FROM lich_thi lt
   JOIN phuong_an p ON p.ma_pa = lt.ma_pa
+ WHERE p.trang_thai = 'DA_CONG_BO';
+
+CREATE OR REPLACE VIEW v_phan_cong_giam_thi_cong_bo AS
+SELECT pc.ma_gt, gt.ho_ten, pc.ma_lich, lt.ma_phong, lt.ma_mon,
+       k.ma_khung, k.ngay_thi, k.ca_thi, k.gio_bat_dau, k.gio_ket_thuc
+  FROM phan_cong_giam_thi pc
+  JOIN giam_thi gt ON gt.ma_gt = pc.ma_gt
+  JOIN lich_thi lt ON lt.ma_lich = pc.ma_lich
+  JOIN khung_gio k ON k.ma_khung = pc.ma_khung
+  JOIN phuong_an p ON p.ma_pa = pc.ma_pa AND p.ma_pa = lt.ma_pa
  WHERE p.trang_thai = 'DA_CONG_BO';
 
 -- ---------- 3. Trigger khóa phương án không ở trạng thái NHAP ----------
